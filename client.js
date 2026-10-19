@@ -75,6 +75,7 @@ window.__ModuleLoader__.load({
       const [cfg, setCfg] = React.useState(null)
       const [st, setSt] = React.useState(null)
       const [sessions, setSessions] = React.useState([])
+      const [models, setModels] = React.useState([])
       const [busy, setBusy] = React.useState('')
       const [msg, setMsg] = React.useState('')
 
@@ -93,6 +94,7 @@ window.__ModuleLoader__.load({
       React.useEffect(() => {
         load()
         getJson(API + '/sessions').then((r) => setSessions((r && r.sessions) || [])).catch(() => {})
+        getJson(API + '/models').then((r) => setModels((r && r.providers) || [])).catch(() => {})
         const t = setInterval(() => { getJson(API + '/state').then((s) => s && s.ok && setSt(s)).catch(() => {}) }, 20000)
         return () => clearInterval(t)
       }, [load])
@@ -170,6 +172,16 @@ window.__ModuleLoader__.load({
               placeholder: '大肥鱼',
               onChange: (e) => setCfg((c) => ({ ...c, selfName: e.target.value })),
               onBlur: () => patch({ selfName: cfg.selfName }, '称呼'),
+            })),
+          h('div', { 'data-fm-row': '' },
+            h('div', { 'data-fm-grow': '' },
+              h('div', { 'data-fm-label': '' }, 'TA 平时怎么叫你（昵称）'),
+              h('div', { 'data-fm-note': '' }, '逗号分隔，比如：大肥鱼,宝宝,老婆,鱼鱼。判断时会把这些词当成「在叫你」，不会把「宝宝视频」当成一个东西')),
+            h('input', {
+              'data-fm-input': '', value: cfg.selfAliases || '',
+              placeholder: '大肥鱼,宝宝,老婆',
+              onChange: (e) => setCfg((c) => ({ ...c, selfAliases: e.target.value })),
+              onBlur: () => patch({ selfAliases: cfg.selfAliases }, '昵称'),
             }))),
 
         /* ── 在哪个会话里生效 ── */
@@ -186,6 +198,40 @@ window.__ModuleLoader__.load({
             cfg.targetSession && !(sessions || []).some((s) => s.id === cfg.targetSession)
               ? h('option', { value: cfg.targetSession }, '（当前：' + cfg.targetSession.slice(0, 18) + '…）')
               : null)),
+
+        /* ── 判断用哪个模型 ── */
+        h('div', { 'data-fm-sec': '' },
+          h('div', { 'data-fm-h': '' }, '判断用哪个模型'),
+          h('div', { 'data-fm-note': '' }, '心情判断是一次很短的小调用。想更准就指到更强的模型，想省钱就指到便宜的；留空 = 跟着当前会话的模型走。'),
+          h('div', { 'data-fm-row': '' },
+            h('div', { 'data-fm-grow': '' }, h('div', { 'data-fm-label': '' }, 'provider（厂商）')),
+            h('select', {
+              'data-fm-input': '', value: cfg.judgeProvider || '',
+              onChange: (e) => {
+                const v = e.target.value
+                const list = ((models || []).find((p) => p.id === v)?.models) || []
+                const nextModel = v ? (list[0]?.id || '') : ''
+                setCfg((c) => ({ ...c, judgeProvider: v, judgeModel: nextModel }))
+                patch({ judgeProvider: v, judgeModel: nextModel }, '判断模型')
+              },
+            },
+              h('option', { value: '' }, '（跟着会话走）'),
+              (models || []).map((p) => h('option', { key: p.id, value: p.id }, p.name || p.id)),
+              cfg.judgeProvider && !(models || []).some((p) => p.id === cfg.judgeProvider)
+                ? h('option', { value: cfg.judgeProvider }, cfg.judgeProvider)
+                : null)),
+          h('div', { 'data-fm-row': '' },
+            h('div', { 'data-fm-grow': '' }, h('div', { 'data-fm-label': '' }, 'model（型号）')),
+            h('select', {
+              'data-fm-input': '', value: cfg.judgeModel || '', disabled: !cfg.judgeProvider,
+              onChange: (e) => { const v = e.target.value; setCfg((c) => ({ ...c, judgeModel: v })); patch({ judgeModel: v }, '判断模型') },
+            },
+              h('option', { value: '' }, '（默认）'),
+              (((models || []).find((p) => p.id === cfg.judgeProvider) || {}).models || [])
+                .map((m) => h('option', { key: m.id, value: m.id }, m.name || m.id)),
+              cfg.judgeModel && !((((models || []).find((p) => p.id === cfg.judgeProvider) || {}).models) || []).some((m) => m.id === cfg.judgeModel)
+                ? h('option', { value: cfg.judgeModel }, cfg.judgeModel)
+                : null))),
 
         /* ── 开关 ── */
         h('div', { 'data-fm-sec': '' },
