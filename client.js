@@ -177,7 +177,7 @@ window.__ModuleLoader__.load({
                 '最近一次说给 TA 的话'
                 + (st.lastInjectedAt ? '（' + new Date(st.lastInjectedAt).toLocaleString() + '）' : '')
                 + (st.injectPreview.replay
-                  ? ' —— 这句是旧版本说的，当时没存原文，按记录重现（大意一致，字面可能略有出入）：'
+                  ? ' —— 这句是按当时的记录还原的，字面可能略有出入：'
                   : ' —— 同一件事不会再说第二遍，之后这句就留在对话记录里：')),
               h('div', { 'data-fm-quote': '', 'data-fm-dim': st.lastInjectedText ? undefined : '' },
                 st.lastInjectedText || '（还没有说过；等下一次心情有变化就有了）'))
@@ -274,7 +274,7 @@ window.__ModuleLoader__.load({
           h('div', { 'data-fm-row': '' },
             h('div', { 'data-fm-grow': '' },
               h('div', { 'data-fm-label': '' }, '心情怎么告诉她'),
-              h('div', { 'data-fm-note': '' }, '不告诉她 = 完全不受影响（挂饰照常显示）；只说心情 = 给一句「此刻心情怎样」；说她刚才那件事 = 把她自己刚才心里那句话带进去，每轮都不一样，最不像被安排')),
+              h('div', { 'data-fm-note': '' }, '不告诉她 = 完全不受影响（挂饰照常显示）；只说心情 = 给一句「此刻心情怎样」；说她刚才那件事 = 把她自己刚才心里那句话带进去，每次都不一样，最不像被安排')),
             h('select', {
               'data-fm-input': '', value: cfg.injectMode || 'event',
               onChange: (e) => patch({ injectMode: e.target.value }, '心情怎么告诉她'),
@@ -282,7 +282,7 @@ window.__ModuleLoader__.load({
               h('option', { value: 'off' }, '不告诉她'),
               h('option', { value: 'label' }, '只说心情'),
               h('option', { value: 'event' }, '说她刚才那件事'))),
-          h('div', { 'data-fm-note': '' }, '不管选哪个，同一次心情变化只说一次 —— 那句话进了对话就留在记录里，之后不再重复（以前每轮都说一遍，会变成背景音把她的口气定死）。'),
+          h('div', { 'data-fm-note': '' }, '同一次心情变化只说一次：那句话进了对话就留在记录里，之后不重复，免得变成反复出现的背景音。'),
           numInput('injectConfidence', '可信度门槛', '判断模型自己对这次判断有多确定；低于这个数就只记进后台、不进她的嘴（0–100，默认 60）。调高更保守，调低更爱说。', 0, 100)),
 
         /* ── 数值 ── */
