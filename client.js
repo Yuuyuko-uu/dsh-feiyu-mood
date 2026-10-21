@@ -120,10 +120,10 @@ window.__ModuleLoader__.load({
 
       if (!cfg) return h('div', { 'data-fm-wrap': '' }, h('div', { 'data-fm-note': '' }, '读取中…'))
 
-      const sw = (key) => h('input', {
+      const sw = (key, label) => h('input', {
         type: 'checkbox',
         checked: Boolean(cfg[key]),
-        onChange: (e) => patch({ [key]: e.target.checked }, key === 'injectMood' ? '心情注入' : '自动判断'),
+        onChange: (e) => patch({ [key]: e.target.checked }, label),
       })
 
       const numInput = (key, label, note, min, max) => h('div', { 'data-fm-row': '' },
@@ -150,7 +150,12 @@ window.__ModuleLoader__.load({
               + (st && st.moodLabel ? '　' + st.moodLabel : '')),
             h('div', { 'data-fm-sub': '' },
               ((st && st.lastReason) || '还没有记录 —— 跟 TA 聊起来就有了'),
-              (st && st.updatedAt ? '（' + new Date(st.updatedAt).toLocaleString() + '）' : '')),
+              (st && st.updatedAt ? '（' + new Date(st.updatedAt).toLocaleString() + '）' : ''),
+              (st && st.lastReason
+                ? (st.injectMode === 'off'
+                  ? '　· 心情不告诉她'
+                  : (st.injectable ? '　· 这条还没跟她说' : '　· 这条已经说过了'))
+                : '')),
           h('button', { 'data-fm-btn': '', disabled: busy === 'reset', onClick: onReset }, '重置到基线'))),
 
         /* ── 称呼 ── */
@@ -240,12 +245,20 @@ window.__ModuleLoader__.load({
             h('div', { 'data-fm-grow': '' },
               h('div', { 'data-fm-label': '' }, '每轮判断心情'),
               h('div', { 'data-fm-note': '' }, '关掉就完全不判断、不改数值（也不花判断的 token）')),
-            sw('autoJudge')),
+            sw('autoJudge', '每轮判断')),
           h('div', { 'data-fm-row': '' },
             h('div', { 'data-fm-grow': '' },
-              h('div', { 'data-fm-label': '' }, '把当前心情注入对话'),
-              h('div', { 'data-fm-note': '' }, '关掉她就不会被心情影响口气（挂饰还照常显示）')),
-            sw('injectMood'))),
+              h('div', { 'data-fm-label': '' }, '心情怎么告诉她'),
+              h('div', { 'data-fm-note': '' }, '不告诉她 = 完全不受影响（挂饰照常显示）；只说心情 = 给一句「此刻心情怎样」；说她刚才那件事 = 把她自己刚才心里那句话带进去，每轮都不一样，最不像被安排')),
+            h('select', {
+              'data-fm-input': '', value: cfg.injectMode || 'event',
+              onChange: (e) => patch({ injectMode: e.target.value }, '心情怎么告诉她'),
+            },
+              h('option', { value: 'off' }, '不告诉她'),
+              h('option', { value: 'label' }, '只说心情'),
+              h('option', { value: 'event' }, '说她刚才那件事'))),
+          h('div', { 'data-fm-note': '' }, '不管选哪个，同一次心情变化只说一次 —— 那句话进了对话就留在记录里，之后不再重复（以前每轮都说一遍，会变成背景音把她的口气定死）。'),
+          numInput('injectConfidence', '可信度门槛', '判断模型自己对这次判断有多确定；低于这个数就只记进后台、不进她的嘴（0–100，默认 60）。调高更保守，调低更爱说。', 0, 100)),
 
         /* ── 数值 ── */
         h('div', { 'data-fm-sec': '' },
@@ -261,7 +274,8 @@ window.__ModuleLoader__.load({
               h('span', { 'data-fm-time': '' }, new Date(t.at).toLocaleString()),
               h('span', { 'data-fm-mood': '' }, String(t.mood)),
               h('span', { 'data-fm-delta': '' }, (t.delta > 0 ? '+' : '') + (t.delta ?? 0)),
-              h('span', { 'data-fm-reason': '' }, t.reason || '—')))),
+              h('span', { 'data-fm-reason': '' }, (t.reason || '—')
+                + (t.conf != null ? '（可信 ' + t.conf + '）' : ''))))),
           (st && st.timeline && st.timeline.length > 40
             ? h('div', { 'data-fm-note': '' }, '只显示最近 40 条，共 ' + st.timeline.length + ' 条')
             : null)),
