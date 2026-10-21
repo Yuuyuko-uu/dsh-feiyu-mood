@@ -171,6 +171,9 @@ window.__ModuleLoader__.load({
               h('div', { 'data-fm-note': '' }, '下一次她开口时，会看到这句（预览 —— 括号里的话会随机换一句）：'),
               h('div', { 'data-fm-quote': '' }, st.injectPreview.text || '（这会儿没有可说的）'))
             : null,
+          (st && st.injectPreview && st.injectPreview.state === 'minor')
+            ? h('div', { 'data-fm-note': '' }, '这次只是个小波动，够不上门槛 —— 记在后台，不打扰她。')
+            : null,
           (st && st.injectPreview && st.injectPreview.state === 'said')
             ? h('div', {},
               h('div', { 'data-fm-note': '' },
@@ -274,22 +277,26 @@ window.__ModuleLoader__.load({
           h('div', { 'data-fm-row': '' },
             h('div', { 'data-fm-grow': '' },
               h('div', { 'data-fm-label': '' }, '心情怎么告诉她'),
-              h('div', { 'data-fm-note': '' }, '不告诉她 = 完全不受影响（挂饰照常显示）；只说心情 = 给一句「此刻心情怎样」；说她刚才那件事 = 把她自己刚才心里那句话带进去，每次都不一样，最不像被安排')),
+              h('div', { 'data-fm-note': '' }, '影响她说话口气的唯一开关。选「说心情和那件事」时，她看到的是两行：第一行是这一刻的心情底子，第二行是这段时间发生了什么 —— 底子会真的影响她怎么说话，那件事只是来历。')),
             h('select', {
               'data-fm-input': '', value: cfg.injectMode || 'event',
               onChange: (e) => patch({ injectMode: e.target.value }, '心情怎么告诉她'),
             },
-              h('option', { value: 'off' }, '不告诉她'),
-              h('option', { value: 'label' }, '只说心情'),
-              h('option', { value: 'event' }, '说她刚才那件事'))),
-          h('div', { 'data-fm-note': '' }, '同一次心情变化只说一次：那句话进了对话就留在记录里，之后不重复，免得变成反复出现的背景音。'),
+              h('option', { value: 'off' }, '不告诉她（只记录，不影响）'),
+              h('option', { value: 'label' }, '只说心情，不说为什么'),
+              h('option', { value: 'event' }, '说心情 + 那件事（推荐）'))),
+          h('div', { 'data-fm-note': '' }, '同一次变化只说一次 —— 说完就留在对话记录里，下次不再重复，不会变成反复出现的背景音。'),
           numInput('injectConfidence', '可信度门槛', '判断模型自己对这次判断有多确定；低于这个数就只记进后台、不进她的嘴（0–100，默认 60）。调高更保守，调低更爱说。', 0, 100)),
 
         /* ── 数值 ── */
         h('div', { 'data-fm-sec': '' },
-          h('div', { 'data-fm-h': '' }, '数值'),
-          numInput('moodBase', '基线心情', '没情绪时心情会慢慢回到这个数（30–100）', 30, 100),
-          numInput('moodFloor', '心情下限', '最低能掉到多少；0 = 不设底线（0–100）', 0, 100)),
+          h('div', { 'data-fm-h': '' }, '心情怎么变'),
+          numInput('moodBase', '基线心情', '没事的时候，心情会慢慢回到这个数（30–100）', 30, 100),
+          numInput('moodFloor', '心情下限', '最低能掉到多少；0 = 不设底线（0–100）', 0, 100),
+          numInput('decayHalfHours', '多久平复一半', '受一次影响之后，心里多久淡掉一半（小时）。大 = 隔夜还留着余温，小 = 情绪来得快去得也快', 1, 168),
+          h('div', { 'data-fm-note': '' }, '下面两个数决定"什么才算一次值得告诉她的变化"。够不着就只记账（面板里看得到，不影响她说话）。调小 = 她更敏感，调大 = 她只在真动心的时候才变。'),
+          numInput('sigMood', '心情变这么多才算', '心情值涨跌够这个数（1–30，默认 6）', 1, 30),
+          numInput('sigDim', '或者某根情绪变这么多', '开心/心疼/担心……任意一根涨跌够这个数（1–100，默认 25）', 1, 100)),
 
         /* ── 时间线 ── */
         h('div', { 'data-fm-sec': '' },
@@ -300,7 +307,9 @@ window.__ModuleLoader__.load({
               h('span', { 'data-fm-mood': '' }, String(t.mood)),
               h('span', { 'data-fm-delta': '' }, (t.delta > 0 ? '+' : '') + (t.delta ?? 0)),
               h('span', { 'data-fm-reason': '' }, (t.reason || '—')
-                + (t.conf != null ? '（可信 ' + t.conf + '）' : ''))))),
+                + (t.kind === 'decay' ? '（自己平的）' : '')
+                + (t.minor ? '（小波动，没告诉她）' : '')
+                + (t.conf != null && t.kind !== 'decay' ? '（可信 ' + t.conf + '）' : ''))))),
           (st && st.timeline && st.timeline.length > 40
             ? h('div', { 'data-fm-note': '' }, '只显示最近 40 条，共 ' + st.timeline.length + ' 条')
             : null)),
