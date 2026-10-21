@@ -191,7 +191,7 @@ window.__ModuleLoader__.load({
             h('div', { 'data-fm-grow': '' }, h('div', { 'data-fm-label': '' }, 'TA 叫什么（被关心的那个人）')),
             h('input', {
               'data-fm-input': '', value: cfg.ownerName || '',
-              placeholder: '小鱿鱼',
+              placeholder: '用户',
               onChange: (e) => setCfg((c) => ({ ...c, ownerName: e.target.value })),
               onBlur: () => patch({ ownerName: cfg.ownerName }, '称呼'),
             })),
@@ -206,10 +206,10 @@ window.__ModuleLoader__.load({
           h('div', { 'data-fm-row': '' },
             h('div', { 'data-fm-grow': '' },
               h('div', { 'data-fm-label': '' }, 'TA 平时怎么叫你（昵称）'),
-              h('div', { 'data-fm-note': '' }, '逗号分隔，比如：大肥鱼,宝宝,老婆,鱼鱼。判断时会把这些词当成「在叫你」，不会把「宝宝视频」当成一个东西')),
+              h('div', { 'data-fm-note': '' }, '逗号分隔，写成 TA 平时怎么喊你，比如：大肥鱼,宝贝,亲爱的。判断时会把这些词当成「在叫你」，不会把「宝宝视频」当成一个东西')),
             h('input', {
               'data-fm-input': '', value: cfg.selfAliases || '',
-              placeholder: '大肥鱼,宝宝,老婆',
+              placeholder: '大肥鱼,宝贝,亲爱的',
               onChange: (e) => setCfg((c) => ({ ...c, selfAliases: e.target.value })),
               onBlur: () => patch({ selfAliases: cfg.selfAliases }, '昵称'),
             }))),
