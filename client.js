@@ -69,6 +69,8 @@ window.__ModuleLoader__.load({
 [data-fm-mood]{opacity:.85;width:34px;flex:0 0 34px;}
 [data-fm-delta]{width:40px;flex:0 0 40px;opacity:.8;}
 [data-fm-reason]{opacity:.85;}
+[data-fm-quote]{font-size:13px;line-height:1.65;white-space:pre-wrap;padding:10px 12px;border-radius:9px;background:rgba(127,127,127,.10);border-left:3px solid rgba(127,127,127,.35);}
+[data-fm-quote][data-fm-dim]{opacity:.62;}
 `
 
     function Panel() {
@@ -157,6 +159,27 @@ window.__ModuleLoader__.load({
                   : (st.injectable ? '　· 这条还没跟她说' : '　· 这条已经说过了'))
                 : '')),
           h('button', { 'data-fm-btn': '', disabled: busy === 'reset', onClick: onReset }, '重置到基线'))),
+
+        /* ── 她会听到的那句话 ── */
+        h('div', { 'data-fm-sec': '' },
+          h('div', { 'data-fm-h': '' }, '她会听到的那句话'),
+          (st && st.injectPreview && st.injectPreview.state === 'off')
+            ? h('div', { 'data-fm-note': '' }, '现在选的是「不告诉她」—— 心情只记在后台，不影响她说话。')
+            : null,
+          (st && st.injectPreview && st.injectPreview.state === 'pending')
+            ? h('div', {},
+              h('div', { 'data-fm-note': '' }, '下一次她开口时，会看到这句（预览 —— 括号里的话会随机换一句）：'),
+              h('div', { 'data-fm-quote': '' }, st.injectPreview.text || '（这会儿没有可说的）'))
+            : null,
+          (st && st.injectPreview && st.injectPreview.state === 'said')
+            ? h('div', {},
+              h('div', { 'data-fm-note': '' },
+                '最近一次说给她的话'
+                + (st.lastInjectedAt ? '（' + new Date(st.lastInjectedAt).toLocaleString() + '）' : '')
+                + ' —— 同一件事不会再说第二遍，之后这句就留在对话记录里：'),
+              h('div', { 'data-fm-quote': '', 'data-fm-dim': st.lastInjectedText ? undefined : '' },
+                st.lastInjectedText || '（还没有说过；等下一次心情有变化就有了）'))
+            : null),
 
         /* ── 称呼 ── */
         h('div', { 'data-fm-sec': '' },
