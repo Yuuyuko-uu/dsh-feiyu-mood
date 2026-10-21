@@ -69,6 +69,7 @@ window.__ModuleLoader__.load({
 [data-fm-mood]{opacity:.85;width:34px;flex:0 0 34px;}
 [data-fm-delta]{width:40px;flex:0 0 40px;opacity:.8;}
 [data-fm-reason]{opacity:.85;}
+[data-fm-ver]{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;background:rgba(127,127,127,.06);}
 [data-fm-quote]{font-size:13px;line-height:1.65;white-space:pre-wrap;padding:10px 12px;border-radius:9px;background:rgba(127,127,127,.10);border-left:3px solid rgba(127,127,127,.35);}
 [data-fm-quote][data-fm-dim]{opacity:.62;}
 `
@@ -80,6 +81,8 @@ window.__ModuleLoader__.load({
       const [models, setModels] = React.useState([])
       const [busy, setBusy] = React.useState('')
       const [msg, setMsg] = React.useState('')
+      const [up, setUp] = React.useState(null)        // 这个插件自己的版本信息
+      const [upBusy, setUpBusy] = React.useState('')
 
       const flash = (t) => { setMsg(t); setTimeout(() => setMsg(''), 2500) }
 
@@ -97,6 +100,7 @@ window.__ModuleLoader__.load({
         load()
         getJson(API + '/sessions').then((r) => setSessions((r && r.sessions) || [])).catch(() => {})
         getJson(API + '/models').then((r) => setModels((r && r.providers) || [])).catch(() => {})
+        getJson(API + '/update').then((r) => setUp(r)).catch(() => {})
         const t = setInterval(() => { getJson(API + '/state').then((s) => s && s.ok && setSt(s)).catch(() => {}) }, 20000)
         return () => clearInterval(t)
       }, [load])
@@ -109,6 +113,20 @@ window.__ModuleLoader__.load({
           flash((label || '设置') + ' 已保存')
         } catch (e) { flash('保存失败：' + (e && e.message)) }
       }
+
+      // 检查更新：点一下就去这个插件自己的仓库看
+      const checkUpdate = async () => {
+        setUpBusy('1')
+        try {
+          const r = await getJson(API + '/update?refresh=1')
+          setUp(r)
+          flash(r && r.hasUpdate ? '有新版本 v' + r.latest : '已经是最新版')
+        } catch (e) {
+          flash('查不到：' + (e && e.message))
+        }
+        setUpBusy('')
+      }
+      const 更新命令 = ['dsh plugin --profile web remove dsh-feiyu-mood', 'dsh plugin --profile web add dsh-feiyu-mood'].join(String.fromCharCode(10))
 
       const onReset = async () => {
         setBusy('reset')
@@ -143,6 +161,36 @@ window.__ModuleLoader__.load({
         }))
 
       return h('div', { 'data-fm-wrap': '' },
+
+        /* ── 版本 / 检查更新 ── */
+        h('div', { 'data-fm-ver': '' },
+          h('div', { 'data-fm-grow': '' },
+            h('div', { 'data-fm-label': '' }, '插件版本 ' + ((up && up.current) || '—')),
+            h('div', { 'data-fm-note': '' },
+              !up ? '正在看有没有新版…'
+                : up.hasUpdate ? '仓库里已经有 v' + up.latest + ' 了'
+                  : up.ok ? '已经是最新版'
+                    : '暂时查不到（' + (up.error || '网络') + '）—— 这不代表没有问题')),
+          h('button', { 'data-fm-btn': '', disabled: upBusy === '1', onClick: checkUpdate },
+            upBusy === '1' ? '查…' : '检查更新')),
+        (up && up.hasUpdate)
+          ? h('div', {},
+            h('div', { 'data-fm-note': '' }, '更新方法：先卸旧版，再装新版 —— 直接装可能拿到缓存里的旧副本。'),
+            h('div', { 'data-fm-quote': '' }, 更新命令),
+            h('div', { 'data-fm-row': '' },
+              h('button', {
+                'data-fm-btn': '',
+                onClick: () => navigator.clipboard.writeText(更新命令)
+                  .then(() => flash('命令已复制'))
+                  .catch(() => flash('复制不了，手动选中吧')),
+              }, '复制命令'),
+              up.repoUrl
+                ? h('a', {
+                  'data-fm-btn': '', href: up.repoUrl, target: '_blank', rel: 'noreferrer',
+                  style: { textDecoration: 'none', display: 'inline-block' },
+                }, '去 GitHub 看看')
+                : null))
+          : null,
 
         /* ── 当前心情 ── */
         h('div', { 'data-fm-hero': '' },
