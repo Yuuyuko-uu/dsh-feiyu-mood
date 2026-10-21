@@ -174,9 +174,11 @@ window.__ModuleLoader__.load({
           (st && st.injectPreview && st.injectPreview.state === 'said')
             ? h('div', {},
               h('div', { 'data-fm-note': '' },
-                '最近一次说给她的话'
+                '最近一次说给 TA 的话'
                 + (st.lastInjectedAt ? '（' + new Date(st.lastInjectedAt).toLocaleString() + '）' : '')
-                + ' —— 同一件事不会再说第二遍，之后这句就留在对话记录里：'),
+                + (st.injectPreview.replay
+                  ? ' —— 这句是旧版本说的，当时没存原文，按记录重现（大意一致，字面可能略有出入）：'
+                  : ' —— 同一件事不会再说第二遍，之后这句就留在对话记录里：')),
               h('div', { 'data-fm-quote': '', 'data-fm-dim': st.lastInjectedText ? undefined : '' },
                 st.lastInjectedText || '（还没有说过；等下一次心情有变化就有了）'))
             : null),
