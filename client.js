@@ -250,17 +250,17 @@ window.__ModuleLoader__.load({
             h('div', { 'data-fm-grow': '' }, h('div', { 'data-fm-label': '' }, 'TA 自己叫什么（有心情的那个人）')),
             h('input', {
               'data-fm-input': '', value: cfg.selfName || '',
-              placeholder: '大肥鱼',
+              placeholder: '伙伴',
               onChange: (e) => setCfg((c) => ({ ...c, selfName: e.target.value })),
               onBlur: () => patch({ selfName: cfg.selfName }, '称呼'),
             })),
           h('div', { 'data-fm-row': '' },
             h('div', { 'data-fm-grow': '' },
               h('div', { 'data-fm-label': '' }, 'TA 平时怎么叫你（昵称）'),
-              h('div', { 'data-fm-note': '' }, '逗号分隔，写成 TA 平时怎么喊你，比如：大肥鱼,宝贝,亲爱的。判断时会把这些词当成「在叫你」，不会把「宝宝视频」当成一个东西')),
+              h('div', { 'data-fm-note': '' }, '逗号分隔，写成 TA 平时怎么喊你，比如：小鱼,宝贝,亲爱的。判断时会把这些词当成「在叫你」，不会把「宝宝视频」当成一个东西')),
             h('input', {
               'data-fm-input': '', value: cfg.selfAliases || '',
-              placeholder: '大肥鱼,宝贝,亲爱的',
+              placeholder: '小鱼,宝贝,亲爱的',
               onChange: (e) => setCfg((c) => ({ ...c, selfAliases: e.target.value })),
               onBlur: () => patch({ selfAliases: cfg.selfAliases }, '昵称'),
             }))),
@@ -268,7 +268,9 @@ window.__ModuleLoader__.load({
         /* ── 在哪个会话里生效 ── */
         h('div', { 'data-fm-sec': '' },
           h('div', { 'data-fm-h': '' }, '在哪个会话里生效'),
-          h('div', { 'data-fm-note': '' }, '心情是全局一份，但只在下面这个会话里判断和注入。换会话不用重启。'),
+          h('div', { 'data-fm-note': '' }, cfg.targetSession
+            ? '心情是全局一份，但只在下面这个会话里判断和注入。换会话不用重启。'
+            : '⚠️ 还没选会话 —— 选一个，心情才会开始判断和注入（现在什么都不做）。'),
           h('select', {
             'data-fm-input': '', value: cfg.targetSession || '',
             onChange: (e) => patch({ targetSession: e.target.value }, '目标会话'),
