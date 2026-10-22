@@ -102,16 +102,27 @@ dsh plugin --profile desktop add github:Yuuyuko-uu/dsh-feiyu-mood
 `readProfileManifest` —— 那是 profile 的 `package.json` 被存成了 **UTF-8 带 BOM**。
 **跟插件无关**：内容都是对的，只是开头多了三个看不见的字节，DSH 读它就崩。
 
-先确认（`desktop` 换成你自己的档名）：
+**先找出来**（不同装法位置不一样，别猜 —— 真正的 profile 目录里同时有 `cordis.yml`、`cordis.patch.yml`、`package.json`；机器上别处那些同名的都不算）：
 
 ```powershell
-Format-Hex "$env:USERPROFILE\.dsh\profiles\desktop\package.json" -Count 3
+Get-ChildItem C:\,D:\,E:\ -Directory -Filter profiles -Recurse -Depth 4 -ErrorAction SilentlyContinue |
+  ForEach-Object {
+    Get-ChildItem $_.FullName -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+      $p = Join-Path $_.FullName 'package.json'
+      if ((Test-Path (Join-Path $_.FullName 'cordis.patch.yml')) -and (Test-Path $p)) {
+        $b = [System.IO.File]::ReadAllBytes($p)
+        $bom = ($b.Length -ge 3 -and $b[0] -eq 0xEF -and $b[1] -eq 0xBB -and $b[2] -eq 0xBF)
+        "{0}   BOM={1}" -f $p, $bom
+      }
+    }
+  }
 ```
 
-开头是 `EF BB BF` = 有 BOM。修（存成无 BOM）：
+**输出里 `BOM=True` 的那一行，就是要修的文件**（标准安装在 `C:\Users\<你>\.dsh\profiles\<档名>\package.json`）。
+去掉 BOM（路径换成上面那一行）：
 
 ```powershell
-$p = "$env:USERPROFILE\.dsh\profiles\desktop\package.json"
+$p = "把上面 BOM=True 那一行的路径粘到这里"
 [System.IO.File]::WriteAllText($p, [System.IO.File]::ReadAllText($p), (New-Object System.Text.UTF8Encoding($false)))
 ```
 
