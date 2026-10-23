@@ -222,6 +222,21 @@ window.__ModuleLoader__.load({
           (st && st.injectPreview && st.injectPreview.state === 'minor')
             ? h('div', { 'data-fm-note': '' }, '这次只是个小波动，够不上门槛 —— 记在后台，不打扰它。')
             : null,
+          (st && st.injectPreview && st.injectPreview.state === 'blocked')
+            ? h('div', {},
+              h('div', { 'data-fm-note': '' },
+                '今天已经说过 ' + (st.injectPreview.said != null ? st.injectPreview.said : st.saidToday)
+                + ' 次（上限 ' + (st.injectPreview.cap != null ? st.injectPreview.cap : st.injectPerDay)
+                + '）—— 这一次的心情今天不会再说了，明天 0 点重新算。'),
+              st.lastInjectedText
+                ? h('div', {},
+                  h('div', { 'data-fm-note': '' },
+                    '最近一次说过的话'
+                    + (st.lastInjectedAt ? '（' + new Date(st.lastInjectedAt).toLocaleString() + '）' : '')
+                    + ' —— 不是这次的：'),
+                  h('div', { 'data-fm-quote': '', 'data-fm-dim': '' }, st.lastInjectedText))
+                : null)
+            : null,
           (st && st.injectPreview && st.injectPreview.state === 'said')
             ? h('div', {},
               h('div', { 'data-fm-note': '' },

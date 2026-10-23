@@ -55,7 +55,20 @@
     '.fm-tlmood{flex:none;width:32px;font-weight:600}',
     '.fm-tldelta{flex:none;width:44px;text-align:left;font-size:12px}',
     '.fm-tlreason{flex:1;overflow-wrap:anywhere;word-break:break-word}',
-    '.fm-tldims{color:#8a93a0;font-size:11px;padding:1px 0 5px 62px}'
+    '.fm-tldims{color:#8a93a0;font-size:11px;padding:1px 0 5px 62px}',
+    // ⭐ 收起态：只剩一个小圆 + 心情数字（挡不住界面），点它再展开
+    '.fm-widget.fm-col{width:44px;height:44px;border-radius:50%;background:rgba(27,28,31,.92);',
+    'border:1px solid rgba(128,128,128,.35);box-shadow:0 4px 14px rgba(0,0,0,.42)}',
+    '.fm-widget.fm-col>img{display:none}',
+    '.fm-col-num{display:none;width:100%;height:100%;align-items:center;justify-content:center;',
+    'font:700 15px/1 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;color:#e8e8ea}',
+    '.fm-widget.fm-col .fm-col-num{display:flex}',
+    '.fm-fold{position:absolute;right:2px;top:2px;width:22px;height:22px;border-radius:50%;display:flex;',
+    'align-items:center;justify-content:center;font-size:13px;line-height:1;cursor:pointer;',
+    'background:rgba(27,28,31,.9);border:1px solid rgba(128,128,128,.35);color:#c9cdd3;',
+    'opacity:0;transition:opacity .15s}',
+    '.fm-widget:hover .fm-fold{opacity:1}',
+    '.fm-widget.fm-col .fm-fold{display:none}'
   ].join('')
 
   var style = document.createElement('style')
@@ -81,6 +94,23 @@
   var bodyImg = elImg(B + '/feiyu.png', '', '形象')
   widget.appendChild(bodyImg)
   widget.title = '心情（点开看，按住拖动换位置）'
+
+  // ⭐ 2026-10-23（反馈）：挂饰太大、一直挡着右下角。
+  //   右上角给一个「收起」小圆钮（鼠标移上去才出现）→ 收成一个小圆，圆里只有心情数字；
+  //   点小圆再展开。收起状态记在浏览器本地，下次进来还是收着的。
+  var colNum = el('div', 'fm-col-num', '')
+  widget.appendChild(colNum)
+  var fold = el('div', 'fm-fold', '–')
+  fold.title = '收起（只留心情数字）'
+  widget.appendChild(fold)
+
+  var collapsed = false
+  try { collapsed = localStorage.getItem('fm-widget-collapsed') === '1' } catch (e) {}
+  function applyCollapsed() {
+    widget.classList.toggle('fm-col', collapsed)
+    widget.title = collapsed ? '心情（点开看，右键看面板）' : '心情（点开看，按住拖动换位置）'
+    if (collapsed && open) toggle()
+  }
 
   var panel = el('div', 'fm-panel')
   widget.appendChild(panel)
@@ -209,6 +239,8 @@
   }
 
   function renderAll(d) {
+    // 收起态那个小圆里显示的心情数字
+    try { colNum.textContent = d && d.mood != null ? String(d.mood) : '--' } catch (e) {}
     if (page === 'log') renderLog(d)
     else renderMain(d)
   }
@@ -262,11 +294,29 @@
     e.preventDefault()
   })
   widget.addEventListener('contextmenu', function (e) {
-    if (e.target !== bodyImg && e.target !== widget) return
+    if (e.target !== bodyImg && e.target !== widget && e.target !== colNum) return
     e.preventDefault(); e.stopPropagation(); toggle()
   })
 
+  // 收起 / 展开（收起状态记在本地，下次进来自动还是那个样子）
+  function 存收起() {
+    try { localStorage.setItem('fm-widget-collapsed', collapsed ? '1' : '0') } catch (e) {}
+  }
+  fold.addEventListener('click', function (e) {
+    e.stopPropagation(); e.preventDefault()
+    collapsed = true
+    存收起()
+    applyCollapsed()
+  })
+  colNum.addEventListener('click', function (e) {
+    e.stopPropagation(); e.preventDefault()
+    collapsed = false
+    存收起()
+    applyCollapsed()
+  })
+
   document.body.appendChild(widget)
+  applyCollapsed()
   load()
 
   // 窗口缩放时，把挂饰拉回屏幕内（拖过才管；没拖的 right/bottom 定位会自然跟随）
