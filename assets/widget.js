@@ -95,11 +95,10 @@
   widget.appendChild(bodyImg)
   widget.title = '心情（点开看，按住拖动换位置）'
 
-  // ⭐ 2026-10-23（反馈改版）：缩小**做成面板里的「最小化」**（像窗口那样），
-  //   不再在挂饰外面挂一个钮。缩小之后：
-  //     · 照样能拖动
-  //     · 点一下 = 还原成形象图 + 直接打开面板（缩小了也要能看记录）
-  //   缩小状态记在浏览器本地，下次进来还是那个样子。
+  // ⭐ 2026-10-23（反馈第二版）：分清两件事，别混在一起 ——
+  //   · **外面那个东西**（大肥鱼形象 / 小圆）：点一下只负责**开关面板**，不改形态
+  //   · **面板右上角那个钮**：只负责**切换外面显示的形态**（大 ↔ 小）
+  //   上一版把两件事揉在一根手指上（点小圆会还原成大肥鱼），所以点了就"变回去了" ✗
   var colNum = el('div', 'fm-col-num', '')
   widget.appendChild(colNum)
 
@@ -107,7 +106,7 @@
   try { collapsed = localStorage.getItem('fm-widget-collapsed') === '1' } catch (e) {}
   function applyCollapsed() {
     widget.classList.toggle('fm-col', collapsed)
-    widget.title = collapsed ? '心情（点一下打开，按住拖动）' : '心情（点开看，按住拖动换位置）'
+    widget.title = collapsed ? '心情（点一下看记录，按住拖动）' : '心情（点开看，按住拖动换位置）'
   }
 
   var panel = el('div', 'fm-panel')
@@ -165,7 +164,7 @@
   function renderMain(d) {
     var f = face(d.mood)
     panel.innerHTML = ''
-    panel.appendChild(最小化钮())
+    panel.appendChild(形态钮())
     var head = el('div', 'fm-head')
     head.appendChild(elImg(f.img, 'fm-face', f.label))
     var htxt = el('div')
@@ -195,7 +194,7 @@
 
   function renderLog(d) {
     panel.innerHTML = ''
-    panel.appendChild(最小化钮())
+    panel.appendChild(形态钮())
     var back = el('span', 'fm-back', '‹ 返回当前心情')
     back.addEventListener('click', function (e) { e.stopPropagation(); page = 'main'; renderMain(d) })
     panel.appendChild(back)
@@ -287,21 +286,9 @@
     function onUp() {
       document.removeEventListener('pointermove', onMove)
       document.removeEventListener('pointerup', onUp)
-      if (!moved) {
-        // 缩小态点一下 = 还原成形象图 + 直接打开面板（缩小了也要能看记录）
-        if (collapsed) {
-          collapsed = false
-          存收起()
-          applyCollapsed()
-          open = true
-          panel.style.display = 'block'
-          page = 'main'
-          load()
-          positionPanel()
-        } else {
-          toggle()
-        }
-      } else if (open) positionPanel()
+      // ⚠ 点外面那个东西**只开关面板**，不管它是大肥鱼还是小圆 —— 形态由面板里的钮管
+      if (!moved) toggle()
+      else if (open) positionPanel()
     }
     document.addEventListener('pointermove', onMove)
     document.addEventListener('pointerup', onUp)
@@ -316,19 +303,25 @@
     try { localStorage.setItem('fm-widget-collapsed', collapsed ? '1' : '0') } catch (e) {}
   }
 
-  // 面板左上角那个「最小化」——点它缩成一个小圆（跟窗口最小化一个意思）
-  function 最小化钮() {
-    var b = el('div', 'fm-mini', '–')
-    b.title = '最小化（缩成一个小圆）'
+  // 面板右上角那个钮：只切换**外面显示的形态**（大肥鱼 ↔ 小圆）。
+  //   · 现在是大的 → 点它变小（图标「–」）
+  //   · 现在是小的 → 点它变回大肥鱼（图标「▢」）
+  // 面板开不开、记录那一页，它一概不管。
+  function 形态钮() {
+    var b = el('div', 'fm-mini', collapsed ? '▢' : '–')
+    b.title = collapsed ? '还原成大肥鱼的形状' : '缩小成一个圆'
     b.addEventListener('click', function (e) {
       e.stopPropagation(); e.preventDefault()
-      collapsed = true
+      collapsed = !collapsed
       存收起()
-      open = false
-      panel.style.display = 'none'
-      page = 'main'
       applyCollapsed()
       保持屏内()
+      // 变小的时候把面板一起收掉；变回大肥鱼的时候面板留着，接着看记录
+      if (collapsed) {
+        open = false
+        panel.style.display = 'none'
+        page = 'main'
+      } else if (open) positionPanel()
     })
     return b
   }
