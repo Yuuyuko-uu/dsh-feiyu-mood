@@ -63,12 +63,12 @@
     '.fm-col-num{display:none;width:100%;height:100%;align-items:center;justify-content:center;',
     'font:700 15px/1 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;color:#e8e8ea}',
     '.fm-widget.fm-col .fm-col-num{display:flex}',
-    '.fm-fold{position:absolute;right:2px;top:2px;width:22px;height:22px;border-radius:50%;display:flex;',
-    'align-items:center;justify-content:center;font-size:13px;line-height:1;cursor:pointer;',
-    'background:rgba(27,28,31,.9);border:1px solid rgba(128,128,128,.35);color:#c9cdd3;',
-    'opacity:0;transition:opacity .15s}',
-    '.fm-widget:hover .fm-fold{opacity:1}',
-    '.fm-widget.fm-col .fm-fold{display:none}'
+    // 面板里的「最小化」（像窗口那样，做在面板边框里面）
+    '.fm-mini{position:absolute;right:8px;top:8px;width:22px;height:22px;border-radius:6px;display:flex;',
+    'align-items:center;justify-content:center;font:600 15px/1 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;',
+    'color:#9aa0a6;cursor:pointer;background:rgba(128,128,128,.14);border:1px solid rgba(128,128,128,.25);z-index:2}',
+    '.fm-mini:hover{background:rgba(128,128,128,.3);color:#e8e8ea}',
+    '.fm-head{padding-right:26px}'
   ].join('')
 
   var style = document.createElement('style')
@@ -95,21 +95,19 @@
   widget.appendChild(bodyImg)
   widget.title = '心情（点开看，按住拖动换位置）'
 
-  // ⭐ 2026-10-23（反馈）：挂饰太大、一直挡着右下角。
-  //   右上角给一个「收起」小圆钮（鼠标移上去才出现）→ 收成一个小圆，圆里只有心情数字；
-  //   点小圆再展开。收起状态记在浏览器本地，下次进来还是收着的。
+  // ⭐ 2026-10-23（反馈改版）：缩小**做成面板里的「最小化」**（像窗口那样），
+  //   不再在挂饰外面挂一个钮。缩小之后：
+  //     · 照样能拖动
+  //     · 点一下 = 还原成形象图 + 直接打开面板（缩小了也要能看记录）
+  //   缩小状态记在浏览器本地，下次进来还是那个样子。
   var colNum = el('div', 'fm-col-num', '')
   widget.appendChild(colNum)
-  var fold = el('div', 'fm-fold', '–')
-  fold.title = '收起（只留心情数字）'
-  widget.appendChild(fold)
 
   var collapsed = false
   try { collapsed = localStorage.getItem('fm-widget-collapsed') === '1' } catch (e) {}
   function applyCollapsed() {
     widget.classList.toggle('fm-col', collapsed)
-    widget.title = collapsed ? '心情（点开看，右键看面板）' : '心情（点开看，按住拖动换位置）'
-    if (collapsed && open) toggle()
+    widget.title = collapsed ? '心情（点一下打开，按住拖动）' : '心情（点开看，按住拖动换位置）'
   }
 
   var panel = el('div', 'fm-panel')
@@ -167,6 +165,7 @@
   function renderMain(d) {
     var f = face(d.mood)
     panel.innerHTML = ''
+    panel.appendChild(最小化钮())
     var head = el('div', 'fm-head')
     head.appendChild(elImg(f.img, 'fm-face', f.label))
     var htxt = el('div')
@@ -196,6 +195,7 @@
 
   function renderLog(d) {
     panel.innerHTML = ''
+    panel.appendChild(最小化钮())
     var back = el('span', 'fm-back', '‹ 返回当前心情')
     back.addEventListener('click', function (e) { e.stopPropagation(); page = 'main'; renderMain(d) })
     panel.appendChild(back)
@@ -262,10 +262,11 @@
   }
 
   // ---- 拖动（动了算拖，没动算点）----
+  // ⚠ 缩小态也要能拖：所以 colNum（那个小圆里的数字）也算拖动的把手。
   var sx = 0, sy = 0, ox = 0, oy = 0, moved = false, dragged = false
   widget.addEventListener('pointerdown', function (e) {
     if (e.button !== 0) return
-    if (e.target !== bodyImg && e.target !== widget) return
+    if (e.target !== bodyImg && e.target !== widget && e.target !== colNum) return
     sx = e.clientX; sy = e.clientY
     var rect = widget.getBoundingClientRect()
     ox = rect.left; oy = rect.top
@@ -286,8 +287,21 @@
     function onUp() {
       document.removeEventListener('pointermove', onMove)
       document.removeEventListener('pointerup', onUp)
-      if (!moved) toggle()
-      else if (open) positionPanel()
+      if (!moved) {
+        // 缩小态点一下 = 还原成形象图 + 直接打开面板（缩小了也要能看记录）
+        if (collapsed) {
+          collapsed = false
+          存收起()
+          applyCollapsed()
+          open = true
+          panel.style.display = 'block'
+          page = 'main'
+          load()
+          positionPanel()
+        } else {
+          toggle()
+        }
+      } else if (open) positionPanel()
     }
     document.addEventListener('pointermove', onMove)
     document.addEventListener('pointerup', onUp)
@@ -298,22 +312,39 @@
     e.preventDefault(); e.stopPropagation(); toggle()
   })
 
-  // 收起 / 展开（收起状态记在本地，下次进来自动还是那个样子）
   function 存收起() {
     try { localStorage.setItem('fm-widget-collapsed', collapsed ? '1' : '0') } catch (e) {}
   }
-  fold.addEventListener('click', function (e) {
-    e.stopPropagation(); e.preventDefault()
-    collapsed = true
-    存收起()
-    applyCollapsed()
-  })
-  colNum.addEventListener('click', function (e) {
-    e.stopPropagation(); e.preventDefault()
-    collapsed = false
-    存收起()
-    applyCollapsed()
-  })
+
+  // 面板左上角那个「最小化」——点它缩成一个小圆（跟窗口最小化一个意思）
+  function 最小化钮() {
+    var b = el('div', 'fm-mini', '–')
+    b.title = '最小化（缩成一个小圆）'
+    b.addEventListener('click', function (e) {
+      e.stopPropagation(); e.preventDefault()
+      collapsed = true
+      存收起()
+      open = false
+      panel.style.display = 'none'
+      page = 'main'
+      applyCollapsed()
+      保持屏内()
+    })
+    return b
+  }
+
+  // 变小/变大之后，别让它跑出屏幕
+  function 保持屏内() {
+    var rect = widget.getBoundingClientRect()
+    var maxX = Math.max(0, window.innerWidth - widget.offsetWidth)
+    var maxY = Math.max(0, window.innerHeight - widget.offsetHeight)
+    if (dragged) {
+      widget.style.left = Math.min(maxX, Math.max(0, rect.left)) + 'px'
+      widget.style.top = Math.min(maxY, Math.max(0, rect.top)) + 'px'
+      widget.style.right = 'auto'
+      widget.style.bottom = 'auto'
+    }
+  }
 
   document.body.appendChild(widget)
   applyCollapsed()
