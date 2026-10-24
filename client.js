@@ -78,6 +78,9 @@ window.__ModuleLoader__.load({
       const [cfg, setCfg] = React.useState(null)
       const [st, setSt] = React.useState(null)
       const [sessions, setSessions] = React.useState([])
+      const [看哪份, set看哪份] = React.useState('')      // 多份心情时看的是哪一份
+      const 看哪份Ref = React.useRef('')
+      const keyNow = () => (看哪份Ref.current ? '?key=' + encodeURIComponent(看哪份Ref.current) : '')
       const [models, setModels] = React.useState([])
       const [busy, setBusy] = React.useState('')
       const [msg, setMsg] = React.useState('')
@@ -88,7 +91,7 @@ window.__ModuleLoader__.load({
 
       const load = React.useCallback(async () => {
         try {
-          const [c, s] = await Promise.all([getJson(API + '/config'), getJson(API + '/state')])
+          const [c, s] = await Promise.all([getJson(API + '/config'), getJson(API + '/state' + keyNow())])
           if (c && c.config) setCfg(c.config)
           if (s && s.ok) setSt(s)
         } catch (e) {
@@ -101,7 +104,7 @@ window.__ModuleLoader__.load({
         getJson(API + '/sessions').then((r) => setSessions((r && r.sessions) || [])).catch(() => {})
         getJson(API + '/models').then((r) => setModels((r && r.providers) || [])).catch(() => {})
         getJson(API + '/update').then((r) => setUp(r)).catch(() => {})
-        const t = setInterval(() => { getJson(API + '/state').then((s) => s && s.ok && setSt(s)).catch(() => {}) }, 20000)
+        const t = setInterval(() => { getJson(API + '/state' + keyNow()).then((s) => s && s.ok && setSt(s)).catch(() => {}) }, 20000)
         return () => clearInterval(t)
       }, [load])
 
@@ -127,6 +130,19 @@ window.__ModuleLoader__.load({
         setUpBusy('')
       }
       const 更新命令 = ['dsh plugin --profile web remove dsh-feiyu-mood', 'dsh plugin --profile web add dsh-feiyu-mood'].join(String.fromCharCode(10))
+
+      /* ⭐ 多份心情：设置页照这份清单画（没配置过就当成「只有 targetSession 那一份」） */
+      const 份列表 = (() => {
+        const raw = Array.isArray(cfg && cfg.slots) && cfg.slots.length
+          ? cfg.slots
+          : [{ session: (cfg && cfg.targetSession) || '' }]
+        return raw.map((s) => ({
+          session: String((s && s.session) || ''),
+          label: String((s && s.label) || ''),
+          selfName: String((s && s.selfName) || ''),
+          ownerName: String((s && s.ownerName) || ''),
+        }))
+      })()
 
       const onReset = async () => {
         setBusy('reset')
@@ -190,6 +206,25 @@ window.__ModuleLoader__.load({
                   style: { textDecoration: 'none', display: 'inline-block' },
                 }, '去 GitHub 看看')
                 : null))
+          : null,
+
+        /* ── 这是哪一份（多份心情才有） ── */
+        (st && st.multi)
+          ? h('div', { 'data-fm-sec': '' },
+            h('div', { 'data-fm-h': '' }, '这是哪一份心情'),
+            h('div', { 'data-fm-note': '' }, '现在有 ' + (st.slots || []).length + ' 份，各自绑各自的会话、互不影响。这里只是切换「看」哪一份。'),
+            h('select', {
+              'data-fm-input': '', value: 看哪份 || (st.key || ''),
+              onChange: (e) => {
+                const v = e.target.value
+                set看哪份(v)
+                看哪份Ref.current = v
+                getJson(API + '/state' + keyNow()).then((x) => { if (x && x.ok) setSt(x) }).catch(() => {})
+              },
+            },
+              (st.slots || []).map((sl) => h('option', { key: sl.key, value: sl.key },
+                sl.label || ((sessions || []).find((x) => x.id === sl.session) || {}).title
+                || sl.session || '（还没绑会话）'))))
           : null,
 
         /* ── 当前心情 ── */
@@ -280,22 +315,54 @@ window.__ModuleLoader__.load({
               onBlur: () => patch({ selfAliases: cfg.selfAliases }, '昵称'),
             }))),
 
-        /* ── 在哪个会话里生效 ── */
+        /* ── 在哪个会话里生效（可以有好几份，各自绑各自的会话） ── */
         h('div', { 'data-fm-sec': '' },
           h('div', { 'data-fm-h': '' }, '在哪个会话里生效'),
-          h('div', { 'data-fm-note': '' }, cfg.targetSession
-            ? '心情是全局一份，但只在下面这个会话里判断和注入。换会话不用重启。'
+          h('div', { 'data-fm-note': '' }, 份列表.some((s) => s.session)
+            ? '每一份只在它绑的那个会话里判断和注入，几份之间互不影响。换会话不用重启。'
             : '⚠️ 还没选会话 —— 选一个，心情才会开始判断和注入（现在什么都不做）。'),
-          h('select', {
-            'data-fm-input': '', value: cfg.targetSession || '',
-            onChange: (e) => patch({ targetSession: e.target.value }, '目标会话'),
-          },
-            h('option', { value: '' }, '（未选）'),
-            (sessions || []).map((s) => h('option', { key: s.id, value: s.id }, s.title)),
-            // 当前值不在列表里（比如归档了）也要能看到
-            cfg.targetSession && !(sessions || []).some((s) => s.id === cfg.targetSession)
-              ? h('option', { value: cfg.targetSession }, '（当前：' + cfg.targetSession.slice(0, 18) + '…）')
-              : null)),
+          份列表.map((sl, i) => h('div', { key: 'slot' + i, 'data-fm-sec': '', style: { padding: '10px 0 4px', borderTop: i ? '1px dashed rgba(128,128,128,.35)' : 'none' } },
+            h('div', { 'data-fm-label': '', style: { marginBottom: '4px' } },
+              i === 0 ? '第一份' : ('第 ' + (i + 1) + ' 份'),
+              i > 0
+                ? h('button', {
+                  'data-fm-btn': '', style: { marginLeft: '8px', padding: '2px 8px', fontSize: '12px' },
+                  onClick: () => {
+                    const next = 份列表.filter((_, j) => j !== i)
+                    patch({ slots: next }, '删掉这一份')
+                  },
+                }, '删掉')
+                : null),
+            h('select', {
+              'data-fm-input': '', value: sl.session || '',
+              onChange: (e) => {
+                const next = 份列表.map((x, j) => (j === i ? { ...x, session: e.target.value } : x))
+                patch({ slots: next }, '选会话')
+              },
+            },
+              h('option', { value: '' }, '（未选）'),
+              (sessions || []).map((x) => h('option', { key: x.id, value: x.id }, x.title)),
+              sl.session && !(sessions || []).some((x) => x.id === sl.session)
+                ? h('option', { value: sl.session }, '（当前：' + String(sl.session).slice(0, 18) + '…）')
+                : null),
+            h('div', { 'data-fm-row': '', style: { marginTop: '6px' } },
+              h('div', { 'data-fm-grow': '' },
+                h('div', { 'data-fm-label': '', style: { fontSize: '12px' } }, '这一份叫什么（可不填）')),
+              h('input', {
+                'data-fm-input': '', value: sl.label || '', placeholder: '可不填',
+                onChange: (e) => {
+                  const next = 份列表.map((x, j) => (j === i ? { ...x, label: e.target.value } : x))
+                  setCfg((c) => ({ ...c, slots: next }))
+                },
+                onBlur: () => patch({ slots: 份列表 }, '名字'),
+              })))),
+          份列表.length < 6
+            ? h('div', { 'data-fm-row': '' },
+              h('button', {
+                'data-fm-btn': '',
+                onClick: () => patch({ slots: [...份列表, { session: '', label: '', selfName: '', ownerName: '' }] }, '再加一份心情'),
+              }, '+ 再加一份心情'))
+            : h('div', { 'data-fm-note': '' }, '最多 6 份。')),
 
         /* ── 判断用哪个模型 ── */
         h('div', { 'data-fm-sec': '' },
