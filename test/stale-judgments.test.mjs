@@ -21,18 +21,23 @@ function harness(slots = [slot('a', ['session-one'])]) {
   helpers.存库({ moods: {}, lastActive: '' })
   assert.deepEqual(helpers.读库().moods, {})
   const routes = new Map(), effects = [], intervals = [], calls = []
-  const events = new Map()
-  const agent = {
-    session: { id: 'session-one', snapshotEvents: () => [
-      { type: 'user/message', payload: { text: 'synthetic user', source: { kind: 'user' } } },
-      { type: 'assistant/message', payload: { text: 'synthetic reply' } },
-    ] },
-    options: { provider: 'fake', model: 'deferred' },
-    ctx: {
-      on(name, fn) { events.set(name, fn); return () => { if (events.get(name) === fn) events.delete(name) } },
-      systemPrompt: { context: () => () => {} },
-    },
+  function makeAgent(sid) {
+    const events = new Map()
+    const agent = {
+      session: { id: sid, snapshotEvents: () => [
+        { type: 'user/message', payload: { text: 'synthetic user', source: { kind: 'user' } } },
+        { type: 'assistant/message', payload: { text: 'synthetic reply' } },
+      ] },
+      options: { provider: 'fake', model: 'deferred' },
+      ctx: {
+        on(name, fn) { events.set(name, fn); return () => { if (events.get(name) === fn) events.delete(name) } },
+        systemPrompt: { context: () => () => {} },
+      },
+    }
+    return { agent, turn: () => events.get('agent/turn-stopping')?.() }
   }
+  const first = makeAgent('session-one')
+  const agent = first.agent
   let agents = [agent]
   const ctx = {
     agents: { list: () => agents, roots: () => agents },
@@ -59,7 +64,9 @@ function harness(slots = [slot('a', ['session-one'])]) {
   }
   return {
     calls, request, agent,
-    turn: () => events.get('agent/turn-stopping')?.(),
+    turn: first.turn,
+    addAgent(sid) { const next = makeAgent(sid); agents.push(next.agent); return next },
+    replaceAgent() { const next = makeAgent('session-one'); agents = [next.agent]; return next },
     tick: () => intervals.forEach(fn => fn()),
     close: () => { agents = [] },
     unload: () => [...effects].reverse().forEach(fn => fn()),
@@ -156,4 +163,52 @@ test('unload prevents queued tasks from invoking the model', async () => {
   const h = harness(); h.turn(); await flush(); h.turn(); h.unload(); await h.settle()
   assert.equal(h.calls.length, 1)
   assert.deepEqual(h.store().moods, {})
+})
+
+test('same sid replacement drops old result and mounts the new agent instance', async () => {
+  const h = harness(); h.turn(); await flush()
+  const replacement = h.replaceAgent()
+  h.tick()
+  replacement.turn()
+  h.turn() // old instance listener was removed; cannot enqueue another task
+  await h.settle(0)
+  assert.deepEqual(h.store().moods, {}, 'old instance must not commit')
+  assert.equal(h.calls.length, 2, 'new instance is mounted and queued')
+  await h.settle(1)
+  assert.equal(h.store().moods.a.mood, 73)
+  assert.equal(h.store().moods.a.timeline.length, 1)
+  assert.equal(h.calls.length, 2)
+  h.unload()
+})
+
+test('two agents sharing a key apply serially to the latest shared state', async () => {
+  const h = harness([slot('a', ['session-one', 'session-two'])])
+  const second = h.addAgent('session-two'); h.tick()
+  h.turn(); await flush(); second.turn(); await flush()
+  assert.equal(h.calls.length, 1, 'second agent waits for the shared judgment chain')
+  await h.settle(0)
+  assert.equal(h.store().moods.a.mood, 73)
+  assert.equal(h.calls.length, 2)
+  await h.settle(1)
+  assert.deepEqual(Object.keys(h.store().moods), ['a'])
+  assert.equal(h.store().moods.a.mood, 76)
+  assert.equal(h.store().moods.a.dims.happy, 12)
+  assert.equal(h.store().moods.a.timeline.length, 2)
+  h.unload()
+})
+
+test('resetting one key preserves another agent pending judgment', async () => {
+  const h = harness([slot('a', ['session-one']), slot('b', ['session-two'])])
+  const second = h.addAgent('session-two'); h.tick()
+  h.turn(); await flush(); second.turn()
+  await h.request('/dsh-feiyu-mood/reset?key=a')
+  await h.settle(0)
+  assert.equal(h.store().moods.a.timeline.length, 0)
+  assert.equal(h.calls.length, 2, 'unrelated key must still invoke the model')
+  await h.settle(1)
+  assert.equal(h.store().moods.a.mood, 70)
+  assert.equal(h.store().moods.a.timeline.length, 0)
+  assert.equal(h.store().moods.b.mood, 73)
+  assert.equal(h.store().moods.b.timeline.length, 1)
+  h.unload()
 })
