@@ -75,6 +75,14 @@ window.__ModuleLoader__.load({
 [data-fm-grow]{flex:1;min-width:180px;}
 [data-fm-label]{font-size:13px;}
 [data-fm-input]{padding:6px 9px;border-radius:7px;border:1px solid rgba(127,127,127,.35);background:transparent;color:inherit;font-size:13px;min-width:120px;}
+/* ⭐ 0.7.2（issue #5）：深色主题下**原生 select 的弹出层是系统白底**，
+   而文字继承了主题的浅色 → 白字白底，选项「看得见但认不出」。
+   用系统色（Canvas / CanvasText）让弹出层跟它自己的底色一起变，
+   深色主题深底浅字、浅色主题白底黑字，两边都不会再撞。 */
+[data-fm-wrap]{color-scheme:light dark;}
+[data-fm-wrap] select{background:Canvas;color:CanvasText;}
+[data-fm-wrap] select option{background:Canvas;color:CanvasText;}
+[data-fm-wrap] select:disabled{opacity:.6;}
 [data-fm-num]{width:88px;min-width:88px;}
 [data-fm-btn]{padding:6px 12px;border-radius:7px;border:1px solid rgba(127,127,127,.35);background:transparent;color:inherit;font-size:13px;cursor:pointer;}
 [data-fm-btn]:hover{background:rgba(127,127,127,.12);}
