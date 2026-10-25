@@ -13,6 +13,11 @@
  * ⭐ 0.6.0：设置页分四个页签（心情 / 会话绑定 / 判断与注入 / 挂饰）。
  *    一份心情可以绑好几个会话 —— 这些会话共用一份心情、一条时间线、每天的额度；
  *    分页签只是把「看」和「改」分开，切页签不动任何设置。
+ *
+ * ⭐ 0.7.0：「会话绑定」页签顶上多了**模式切换**，二选一：
+ *    · 会话模式：跟以前一样，按点名的会话绑；
+ *    · 工作区模式：按工作区绑 —— 那个工作区下所有会话都归这一份，新开的自动进来。
+ *    名字那栏的文案也改清楚了：那只是「这份叫什么」，不是称呼（称呼在「判断与注入」）。
  * ============================================================================
  */
 window.__ModuleLoader__.load({
@@ -79,6 +84,9 @@ window.__ModuleLoader__.load({
 [data-fm-tab]{padding:5px 12px;border-radius:7px;border:1px solid transparent;background:transparent;color:inherit;font-size:13px;cursor:pointer;opacity:.72;}
 [data-fm-tab]:hover{background:rgba(127,127,127,.10);opacity:1;}
 [data-fm-tab][data-fm-on]{background:rgba(127,127,127,.16);border-color:rgba(127,127,127,.28);opacity:1;font-weight:600;}
+[data-fm-pick]{padding:5px 14px;border-radius:7px;border:1px solid rgba(127,127,127,.35);background:transparent;color:inherit;font-size:13px;cursor:pointer;opacity:.8;}
+[data-fm-pick]:hover{background:rgba(127,127,127,.10);opacity:1;}
+[data-fm-pick][data-fm-on]{background:rgba(127,127,127,.18);border-color:rgba(127,127,127,.5);opacity:1;font-weight:600;}
 [data-fm-pane]{display:flex;flex-direction:column;gap:14px;}
 [data-fm-slot]{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:10px;background:rgba(127,127,127,.06);}
 [data-fm-sess]{display:flex;align-items:center;gap:8px;padding:2px 0;}
@@ -100,6 +108,7 @@ window.__ModuleLoader__.load({
       const [cfg, setCfg] = React.useState(null)
       const [st, setSt] = React.useState(null)
       const [sessions, setSessions] = React.useState([])
+      const [工作区们, set工作区们] = React.useState([])   // 工作区模式的下拉清单
       const [看哪份, set看哪份] = React.useState('')      // 多份心情时看的是哪一份
       const 看哪份Ref = React.useRef('')
       const keyNow = () => (看哪份Ref.current ? '?key=' + encodeURIComponent(看哪份Ref.current) : '')
@@ -125,6 +134,7 @@ window.__ModuleLoader__.load({
       React.useEffect(() => {
         load()
         getJson(API + '/sessions').then((r) => setSessions((r && r.sessions) || [])).catch(() => {})
+        getJson(API + '/workspaces').then((r) => set工作区们((r && r.workspaces) || [])).catch(() => {})
         getJson(API + '/models').then((r) => setModels((r && r.providers) || [])).catch(() => {})
         getJson(API + '/update').then((r) => setUp(r)).catch(() => {})
         const t = setInterval(() => { getJson(API + '/state' + keyNow()).then((s) => s && s.ok && setSt(s)).catch(() => {}) }, 20000)
@@ -154,16 +164,18 @@ window.__ModuleLoader__.load({
       }
       const 更新命令 = ['dsh plugin --profile web remove dsh-feiyu-mood', 'dsh plugin --profile web add dsh-feiyu-mood'].join(String.fromCharCode(10))
 
-      /* ⭐ 一份心情可以绑好几个会话：这里照这份清单画（没配置过就当成「第一份、还没绑会话」） */
+      /* ⭐ 一份心情可以绑好几个会话（或一个工作区）：这里照这份清单画
+         （没配置过就当成「第一份」；id 尽量沿用宿主给的 st.key，别凭空造一个） */
       const 份列表 = (() => {
         const raw = Array.isArray(cfg && cfg.slots) && cfg.slots.length
           ? cfg.slots
-          : [{ id: '', label: '', selfName: '', ownerName: '', sessions: [] }]
+          : [{ id: String((st && st.key) || ''), label: '', selfName: '', ownerName: '', 工作区: '', sessions: [] }]
         return raw.map((s) => ({
           id: String((s && s.id) || ''),
           label: String((s && s.label) || ''),
           selfName: String((s && s.selfName) || ''),
           ownerName: String((s && s.ownerName) || ''),
+          工作区: String((s && s.工作区) || (s && s.workspace) || ''),
           sessions: Array.isArray(s && s.sessions)
             ? s.sessions.map((x) => String(x || ''))
             : ((s && s.session) ? [String(s.session)] : []),
@@ -175,12 +187,13 @@ window.__ModuleLoader__.load({
       }
       const 份标题 = (sl) => sl.label
         || (sl.sessions || []).map(会话名).filter(Boolean).join('、')
+        || (sl.工作区 ? String(sl.工作区) : '')
         || '（还没绑会话）'
       const 已绑 = new Set()
       份列表.forEach((p) => p.sessions.forEach((s) => 已绑.add(s)))
       const 可加会话 = (sessions || []).filter((x) => !已绑.has(x.id))
 
-      const 改份 = (i, 变) => patch({ slots: 份列表.map((x, j) => (j === i ? { ...x, ...变 } : x)) }, '会话绑定')
+      const 改份 = (i, 变) => patch({ slots: 份列表.map((x, j) => (j === i ? { ...x, ...变 } : x)) }, '绑定')
 
       const 切份 = (e) => {
         const v = e.target.value
@@ -335,63 +348,120 @@ window.__ModuleLoader__.load({
         return h('div', { 'data-fm-pane': '' }, ...项)
       })()
 
-      /* ── 页签 2：会话绑定（每一份心情绑哪些会话） ── */
+      /* ── 页签 2：绑定（会话模式按会话绑 / 工作区模式按工作区绑，二选一） ── */
+      const 模式 = cfg.模式 === 'workspace' ? 'workspace' : 'session'
+      const 工作区显示 = (name) => {
+        const 命中 = (工作区们 || []).find((w) => w.name === name)
+        return (命中 && (命中.path || 命中.name)) || String(name || '')
+      }
+      const 刷新工作区 = () => {
+        getJson(API + '/workspaces').then((r) => set工作区们((r && r.workspaces) || [])).catch(() => {})
+      }
       const 绑定页 = (() => {
         const 项 = []
-        项.push(h('div', { key: 'h', 'data-fm-h': '' }, '会话绑定'))
+        const 模式钮 = (id, 名) => h('button', {
+          key: id,
+          'data-fm-pick': '',
+          'data-fm-on': 模式 === id ? '' : undefined,
+          onClick: () => {
+            if (模式 !== id) patch({ 模式: id }, '模式')
+            if (id === 'workspace') 刷新工作区()
+          },
+        }, 名)
+        项.push(h('div', { key: 'mode', 'data-fm-sec': '' },
+          h('div', { 'data-fm-h': '' }, '按什么认这一份'),
+          h('div', { 'data-fm-note': '' },
+            '两种模式只能选一种，不能同时开。'
+            + '会话模式：只有下面点名的会话用这一份。'
+            + '工作区模式：整个工作区里的会话都用这一份 —— 新开的会话自动进来，共用这一份心情、一条时间线和每天的额度。'),
+          h('div', { 'data-fm-row': '' },
+            模式钮('session', '会话模式'),
+            模式钮('workspace', '工作区模式'))))
+        项.push(h('div', { key: 'h', 'data-fm-h': '' }, 模式 === 'workspace' ? '工作区绑定' : '会话绑定'))
         项.push(h('div', { key: 'note', 'data-fm-note': '' },
-          '每一份心情可以绑好几个会话：绑在同一份上的会话共用这一份心情、一条时间线和每天的额度；不同份之间互不影响。'
-          + '一个会话只会归一份，重复加进来的会被丢掉。'))
+          模式 === 'workspace'
+            ? '每一份填一个工作区：那个工作区下所有会话都归这一份，不用一个个加。切回会话模式时，原来绑的会话还在。'
+            : '每一份心情可以绑好几个会话：绑在同一份上的会话共用这一份心情、一条时间线和每天的额度；不同份之间互不影响。'
+              + '一个会话只会归一份，重复加进来的会被丢掉。'))
         份列表.forEach((sl, i) => {
           const 标题 = i === 0 ? '第一份' : ('第 ' + (i + 1) + ' 份')
+          const 这块工作区 = (工作区们 || []).find((w) => w.name === (sl.工作区 || ''))
+          // 会话模式：这一份绑的会话，能删能加
+          const 会话块 = h('div', {},
+            sl.sessions.length
+              ? sl.sessions.map((sid) => h('div', { key: sid, 'data-fm-sess': '' },
+                h('span', { 'data-fm-sessname': '', title: sid }, 会话名(sid)),
+                h('button', {
+                  'data-fm-btn': '', style: { padding: '2px 8px', fontSize: '12px', flex: '0 0 auto' },
+                  onClick: () => 改份(i, { sessions: sl.sessions.filter((x) => x !== sid) }),
+                }, '删掉')))
+              : h('div', { 'data-fm-note': '' }, '还没绑会话 —— 从下面加一个。'),
+            h('div', { style: { marginTop: '6px' } },
+              h('select', {
+                'data-fm-input': '', value: '',
+                onChange: (e) => {
+                  const v = e.target.value
+                  if (v) 改份(i, { sessions: [...sl.sessions, v] })
+                },
+              },
+                h('option', { value: '' }, '+ 加一个会话'),
+                ((sessions || []).filter((x) => !已绑.has(x.id))).map((x) => h('option', { key: x.id, value: x.id }, x.title || x.id)))))
+          // 工作区模式：这一份只填一个工作区（工作区里所有会话都归它）
+          const 工作区块 = h('div', {},
+            h('div', { 'data-fm-row': '' },
+              h('select', {
+                'data-fm-input': '', 'data-fm-grow': '', value: sl.工作区 || '',
+                onChange: (e) => 改份(i, { 工作区: e.target.value }),
+              },
+                h('option', { value: '' }, '（还没选工作区）'),
+                (工作区们 || []).map((w) => h('option', { key: w.name, value: w.name },
+                  (w.path ? w.path + (w.title ? '（' + w.title + '）' : '') : w.name)
+                  + ' · ' + (w.sessions || 0) + ' 个会话')),
+                sl.工作区 && !(工作区们 || []).some((w) => w.name === sl.工作区)
+                  ? h('option', { value: sl.工作区 }, sl.工作区 + '（不在清单里，可能是别的机器上的）')
+                  : null),
+              h('button', { 'data-fm-btn': '', onClick: 刷新工作区, style: { flex: '0 0 auto' } }, '刷新')),
+            h('div', { 'data-fm-note': '' },
+              sl.工作区
+                ? (这块工作区
+                  ? '这个工作区现在有 ' + (这块工作区.sessions || 0) + ' 个会话 —— 全部用这一份，新开的也会自动进来。'
+                  : '清单里没有这个工作区（可能是别的机器上的目录名）—— 它下面新出现的会话照样归这一份。')
+                : '选一个工作区；选好以后这个工作区里的会话都归这一份。'))
           项.push(h('div', { key: 'slot' + i, 'data-fm-slot': '' },
             h('div', { 'data-fm-row': '' },
               h('div', { 'data-fm-grow': '', style: { fontWeight: 600, fontSize: '13px' } },
-                标题 + (sl.sessions.length ? ' · ' + sl.sessions.length + ' 个会话' : ' · 还没绑会话')),
+                标题 + (模式 === 'workspace'
+                  ? (sl.工作区 ? ' · ' + 工作区显示(sl.工作区) : ' · 还没选工作区')
+                  : (sl.sessions.length ? ' · ' + sl.sessions.length + ' 个会话' : ' · 还没绑会话'))),
               h('button', {
                 'data-fm-btn': '', style: { padding: '2px 8px', fontSize: '12px' },
                 onClick: () => patch({ slots: 份列表.filter((_, j) => j !== i) }, '删掉这一份'),
               }, '删掉')),
             h('div', { 'data-fm-row': '' },
               h('div', { 'data-fm-grow': '' },
-                h('div', { 'data-fm-label': '', style: { fontSize: '12px' } }, '名字（可不填）')),
+                h('div', { 'data-fm-label': '', style: { fontSize: '12px' } },
+                  '这份叫什么（只是用来区分，不是称呼）')),
               h('input', {
-                'data-fm-input': '', value: sl.label || '', placeholder: '可不填',
+                'data-fm-input': '', value: sl.label || '', placeholder: '比如：这份叫大肥鱼，那份叫修路的',
                 onChange: (e) => {
                   const v = e.target.value
                   setCfg((c) => ({ ...c, slots: 份列表.map((x, j) => (j === i ? { ...x, label: v } : x)) }))
                 },
                 onBlur: () => patch({ slots: 份列表 }, '名字'),
               })),
-            h('div', {},
-              sl.sessions.length
-                ? sl.sessions.map((sid) => h('div', { key: sid, 'data-fm-sess': '' },
-                  h('span', { 'data-fm-sessname': '', title: sid }, 会话名(sid)),
-                  h('button', {
-                    'data-fm-btn': '', style: { padding: '2px 8px', fontSize: '12px', flex: '0 0 auto' },
-                    onClick: () => 改份(i, { sessions: sl.sessions.filter((x) => x !== sid) }),
-                  }, '删掉')))
-                : h('div', { 'data-fm-note': '' }, '还没绑会话 —— 从下面加一个。'),
-              h('div', { style: { marginTop: '6px' } },
-                h('select', {
-                  'data-fm-input': '', value: '',
-                  onChange: (e) => {
-                    const v = e.target.value
-                    if (v) 改份(i, { sessions: [...sl.sessions, v] })
-                  },
-                },
-                  h('option', { value: '' }, '+ 加一个会话'),
-                  ((sessions || []).filter((x) => !已绑.has(x.id))).map((x) => h('option', { key: x.id, value: x.id }, x.title || x.id)))))))
+            模式 === 'workspace' ? 工作区块 : 会话块))
         })
         项.push(份列表.length < 6
           ? h('div', { key: 'add', 'data-fm-row': '' },
             h('button', {
               'data-fm-btn': '',
-              onClick: () => patch({ slots: [...份列表, { id: '', label: '', selfName: '', ownerName: '', sessions: [] }] }, '再加一份心情'),
+              onClick: () => patch({ slots: [...份列表, { id: '', label: '', selfName: '', ownerName: '', 工作区: '', sessions: [] }] }, '再加一份心情'),
             }, '+ 再加一份心情'))
           : h('div', { key: 'max', 'data-fm-note': '' }, '最多 6 份。'))
         项.push(h('div', { key: 'tip', 'data-fm-note': '' },
-          '下拉里是真会话（跳过归档和空会话）；同一个会话重复加是加不进去的。换会话、加会话都不用重启。'))
+          模式 === 'workspace'
+            ? '工作区下拉里，能反查到路径的显示路径，查不到的显示目录名 —— 两种都能选。'
+            : '下拉里是真会话（跳过归档和空会话）；同一个会话重复加是加不进去的。换会话、加会话都不用重启。'))
         return h('div', { 'data-fm-pane': '' }, ...项)
       })()
 
