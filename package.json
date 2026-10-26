@@ -5,6 +5,9 @@
   "license": "MIT",
   "author": "Yuuyuko-uu (https://github.com/Yuuyuko-uu)",
   "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
   "keywords": [
     "deepseek-harness",
     "dsh-plugin",

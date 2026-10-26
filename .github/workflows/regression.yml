@@ -1,0 +1,40 @@
+name: Mood lifecycle regression
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    name: ${{ matrix.os }} / Node ${{ matrix.node }} / ${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-2022, node: '22', arch: x64 }
+          - { os: ubuntu-24.04, node: '22', arch: x64 }
+          - { os: ubuntu-24.04, node: '24', arch: x64 }
+          - { os: macos-15, node: '22', arch: arm64 }
+          - { os: ubuntu-24.04-arm, node: '22', arch: arm64 }
+          - { os: macos-15-intel, node: '22', arch: x64 }
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
+        with:
+          node-version: ${{ matrix.node }}
+          architecture: ${{ matrix.arch }}
+          package-manager-cache: false
+      # These synthetic regressions use Node built-ins; no install, secrets or host services.
+      - name: Run regression
+        shell: bash
+        run: |
+          node -p "'Runtime: ' + process.version + ' ' + process.platform + '/' + process.arch"
+          node --test test/stale-judgments.test.mjs
