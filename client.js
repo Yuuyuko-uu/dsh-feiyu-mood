@@ -149,6 +149,22 @@ window.__ModuleLoader__.load({
         return () => clearInterval(t)
       }, [load])
 
+      // ⭐ 0.7.5（她报的「最小化的时候心情不刷新，得点一下才变」）：
+      //   页面在后台时浏览器会把定时器节流到一分钟以上，切回来那一瞬间还显示旧值。
+      //   所以「重新可见 / 重新获得焦点」时立刻拉一次 —— 不用她点任何东西。
+      React.useEffect(() => {
+        const 立刻刷 = () => {
+          if (document.hidden) return
+          getJson(API + '/state' + keyNow()).then((s) => { if (s && s.ok) setSt(s) }).catch(() => {})
+        }
+        document.addEventListener('visibilitychange', 立刻刷)
+        window.addEventListener('focus', 立刻刷)
+        return () => {
+          document.removeEventListener('visibilitychange', 立刻刷)
+          window.removeEventListener('focus', 立刻刷)
+        }
+      }, [])
+
       const patch = async (p, label) => {
         setCfg((c) => ({ ...c, ...p }))
         try {
