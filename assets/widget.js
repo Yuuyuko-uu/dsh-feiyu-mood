@@ -343,6 +343,14 @@
   applyCollapsed()
   load()
 
+  // ⭐ 0.7.6（她报的「收起态那个数字不刷新，得点一下才变」）：
+  //   以前只有「点开面板」才 load() 一次，收起来的时候就再也不拉了 —— 数字一直是旧的。
+  //   现在收起态也每 20 秒拉一次（就一个 GET，不花 token）；页面重新可见时也补一次。
+  setInterval(load, 20000)
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) load()
+  })
+
   // 窗口缩放时，把挂饰拉回屏幕内（拖过才管；没拖的 right/bottom 定位会自然跟随）
   window.addEventListener('resize', function () {
     if (!dragged) return
