@@ -1,3 +1,15 @@
+## 0.7.3 — 2026-10-26
+
+**子代理通知 / 定时任务 / 自动继续 不再被当成「她这一轮说的话」（issue #10）**
+
+- 🐛 用户报的：子代理跑完的通知、定时任务、自动继续这类消息，也被记成了「用户说的话」，拿去判心情了。
+- ✅ 认得这些**机器来源**并跳过：`schedule`（定时任务）、`goal` / `goal-round`（目标自动继续）、
+  `subagent` / `subagent-notice`（子代理通知）、`tool-registry`、`cordis-host-runner`、`agent-instructions`、
+  `system-prompt`、`model`、`plugin`；另外按前缀挡掉 `subagent*` / `goal*` / `tool-*` / `system-*` / `schedule*`。
+- ✅ 仍然只跳过**认识的**机器来源：真没见过的来源照旧按「她在说话」处理（免得又把某座网桥漏掉），
+  并且只在日志里记一行（同一种来源只记一次）。
+- 自测：`_feiyu_自动触发_自测.mjs` **17 项**全过（新增 6 项：schedule / goal / subagent / subagent-notice / tool-registry / 夹在机器消息里的真人话）。
+
 ## 0.7.2 — 2026-10-25
 
 **深色主题下「工作区」下拉看不见选项（issue #5）**
