@@ -194,8 +194,9 @@ dsh plugin --profile desktop add github:Yuuyuko-uu/dsh-feiyu-mood
 | 适合 | 一个工作区里有好几个伙伴，各聊各的 | 一个工作区就是一个人，不想每次新开会话都去加一遍 |
 
 工作区怎么认：DSH 把会话存在 `~/.dsh/sessions/<工作区目录名>/<会话id>/`，所以**工作区标识就是中间那层目录名**
-（例如 `--C-Users-Administrator-Desktop-~9C7C~9C7C~7A9D-dsh--`）。设置页下拉里会拿 `~/.dsh/storages/workspace.json` 里登记过的路径反查成可读路径；
-查不到（别的机器上建的）就直接显示目录名 —— 两种都能选。
+（例如 `--C-Users-Administrator-Desktop-~9C7C~9C7C~7A9D-dsh--`）。设置页下拉**只列 `~/.dsh/sessions/` 下真实存在的目录**
+（DSH 自己写下的那个名字），不会凭路径再造一个 0 会话的重复项；可读路径用 `~/.dsh/storages/workspace.json`
+里登记过的路径反查，查不到就直接显示目录名。
 
 > 切回会话模式时，原来绑的会话还在，不用重新加。
 > 同一份心情的 `id` 跟它绑了哪些会话无关：删会话、改名都不会换一份记录，所以**记录不会因为改绑定而"消失"**。
