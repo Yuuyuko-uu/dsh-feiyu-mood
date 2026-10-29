@@ -53,3 +53,37 @@ test('没有会话文件的目录不列（中间目录靠这个排除）', () =>
 test('空会话（blank）不列', () => {
   assert.ok(!模.会话清单().some((x) => x.id === 'bbbb-cccc-dddd'))
 })
+
+
+// ⭐ 0.8.1：两条新规矩 —— ①子代理不出现 ②「未分组」那种直接躺在 sessions/ 下的会话也要认
+{
+  // 子代理：缓存里有 rows.subagent.val.identity
+  造('--workspace-A--', 'sub-1-uuid', { 标题: '子代理会话' })
+  const 缓存 = join(缓存根, 'sub-1-uuid.json')
+  writeFileSync(缓存, JSON.stringify({
+    version: 1,
+    record: {
+      identity: {},
+      rows: {
+        title: { val: '子代理会话' },
+        subagent: { ver: 2, seq: 1, val: { identity: { mode: 'continuable', label: '刷B站' } } },
+        sessionListMetadata: { val: { lastPromptAt: Date.now(), blank: false } },
+      },
+    },
+  }))
+  // 未分组：直接 sessions/<uuid>/
+  const 裸 = join(会话根, 'bare-uuid-0001')
+  mkdirSync(裸, { recursive: true })
+  writeFileSync(join(裸, 'session.v4.jsonl.zstd'), 'x')
+
+  const 单 = 模.会话清单()
+  const id们 = 单.map((x) => x.id)
+
+  test('子代理不进下拉', () => {
+    assert.ok(!id们.includes('sub-1-uuid'), JSON.stringify(id们))
+  })
+
+  test('「未分组」那种直接放在 sessions/ 下的会话也能列出来', () => {
+    assert.ok(id们.includes('bare-uuid-0001'), JSON.stringify(id们))
+  })
+}
