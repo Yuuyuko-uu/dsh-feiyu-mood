@@ -22,7 +22,9 @@
   }
 
   var css = [
-    '.fm-widget{position:fixed;right:18px;bottom:18px;z-index:99990;width:180px;height:180px;',
+    // ⭐ 0.8.0：尺寸可自己调（面板里那个「大小」滑杆），--fm-scale 就是倍数
+    '.fm-widget{position:fixed;right:18px;bottom:18px;z-index:99990;--fm-scale:1;',
+    'width:calc(180px * var(--fm-scale));height:calc(180px * var(--fm-scale));',
     'cursor:grab;user-select:none;background:transparent;border:0;padding:0;-webkit-user-drag:none;',
     'transition:filter .15s}',
     '.fm-widget:hover{filter:brightness(1.04)}',
@@ -57,11 +59,15 @@
     '.fm-tlreason{flex:1;overflow-wrap:anywhere;word-break:break-word}',
     '.fm-tldims{color:#8a93a0;font-size:11px;padding:1px 0 5px 62px}',
     // ⭐ 收起态：只剩一个小圆 + 心情数字（挡不住界面），点它再展开
-    '.fm-widget.fm-col{width:44px;height:44px;border-radius:50%;background:rgba(27,28,31,.92);',
-    'border:1px solid rgba(128,128,128,.35);box-shadow:0 4px 14px rgba(0,0,0,.42)}',
-    '.fm-widget.fm-col>img{display:none}',
-    '.fm-col-num{display:none;width:100%;height:100%;align-items:center;justify-content:center;',
-    'font:700 15px/1 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;color:#e8e8ea}',
+    // ⭐ 0.8.0：收起态是**一只小鲸鱼**（形象缩到 64px），不再是纯圆 ——
+    //   心情数字做成一角上的小徽章，照样能拖、点一下展开。
+    '.fm-widget.fm-col{width:64px;height:64px;border-radius:0;background:transparent;border:0;',
+    'box-shadow:none}',
+    '.fm-widget.fm-col>img{display:block;filter:drop-shadow(0 4px 12px rgba(0,0,0,.45))}',
+    '.fm-col-num{display:none;position:absolute;right:-4px;bottom:-4px;width:24px;height:24px;',
+    'border-radius:50%;background:rgba(27,28,31,.94);border:1px solid rgba(128,128,128,.4);',
+    'align-items:center;justify-content:center;',
+    'font:700 11px/1 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;color:#e8e8ea}',
     '.fm-widget.fm-col .fm-col-num{display:flex}',
     // 面板里的「最小化」（像窗口那样，做在面板边框里面）
     '.fm-mini{position:absolute;right:8px;top:8px;width:22px;height:22px;border-radius:6px;display:flex;',
@@ -104,6 +110,8 @@
 
   var collapsed = false
   try { collapsed = localStorage.getItem('fm-widget-collapsed') === '1' } catch (e) {}
+  // ⭐ 0.8.0：上次调过的大小，进来就照那个来
+  try { 设缩放(取缩放(), false) } catch (e) {}
   function applyCollapsed() {
     widget.classList.toggle('fm-col', collapsed)
     widget.title = collapsed ? '心情（点一下看记录，按住拖动）' : '心情（点开看，按住拖动换位置）'
@@ -185,6 +193,32 @@
       row.appendChild(el('span', 'fm-val', String(x.value || 0)))
       panel.appendChild(row)
     })
+
+    // ⭐ 0.8.0：大小自己调 —— 鲸鱼娘形象和悬浮球是两种需求，别只给「收起」一个选项
+    var 大小行 = el('div', 'fm-dim')
+    大小行.appendChild(el('span', 'fm-dimlabel', '大小'))
+    var 滑 = document.createElement('input')
+    滑.type = 'range'
+    滑.min = '60'
+    滑.max = '160'
+    滑.step = '5'
+    滑.value = String(Math.round(取缩放() * 100))
+    滑.style.cssText = 'flex:1;accent-color:#8fa8c8;cursor:pointer'
+    var 读数 = el('span', 'fm-val', Math.round(取缩放() * 100) + '%')
+    滑.addEventListener('input', function (e) {
+      e.stopPropagation()
+      var 百 = Number(滑.value) || 100
+      读数.textContent = 百 + '%'
+      设缩放(百 / 100, false)
+    })
+    滑.addEventListener('change', function (e) {
+      e.stopPropagation()
+      设缩放((Number(滑.value) || 100) / 100, true)
+    })
+    滑.addEventListener('click', function (e) { e.stopPropagation() })
+    大小行.appendChild(滑)
+    大小行.appendChild(读数)
+    panel.appendChild(大小行)
 
     var btn = el('button', 'fm-btn', '看完整记录 ▸')
     btn.addEventListener('click', function (e) { e.stopPropagation(); page = 'log'; renderLog(d) })
@@ -303,13 +337,26 @@
     try { localStorage.setItem('fm-widget-collapsed', collapsed ? '1' : '0') } catch (e) {}
   }
 
+  // ⭐ 0.8.0：挂饰自己能多大（0.6 ~ 1.6 倍），记在浏览器本地
+  function 取缩放() {
+    var v = 1
+    try { v = Number(localStorage.getItem('fm-widget-scale')) || 1 } catch (e) {}
+    return Math.min(1.6, Math.max(0.6, v))
+  }
+  function 设缩放(v, 存) {
+    var s = Math.min(1.6, Math.max(0.6, Number(v) || 1))
+    try { widget.style.setProperty('--fm-scale', String(s)) } catch (e) {}
+    if (存) { try { localStorage.setItem('fm-widget-scale', String(s)) } catch (e) {} }
+    保持屏内()
+  }
+
   // 面板右上角那个钮：只切换**外面显示的形态**（大肥鱼 ↔ 小圆）。
   //   · 现在是大的 → 点它变小（图标「–」）
   //   · 现在是小的 → 点它变回大肥鱼（图标「▢」）
   // 面板开不开、记录那一页，它一概不管。
   function 形态钮() {
     var b = el('div', 'fm-mini', collapsed ? '▢' : '–')
-    b.title = collapsed ? '还原成大肥鱼的形状' : '缩小成一个圆'
+    b.title = collapsed ? '还原成大肥鱼的形状' : '缩成一只小鲸鱼'
     b.addEventListener('click', function (e) {
       e.stopPropagation(); e.preventDefault()
       collapsed = !collapsed
