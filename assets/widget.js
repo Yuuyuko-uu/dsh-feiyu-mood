@@ -322,7 +322,10 @@
       document.removeEventListener('pointerup', onUp)
       // ⚠ 点外面那个东西**只开关面板**，不管它是大肥鱼还是小圆 —— 形态由面板里的钮管
       if (!moved) toggle()
-      else if (open) positionPanel()
+      else {
+        存位置()
+        if (open) positionPanel()
+      }
     }
     document.addEventListener('pointermove', onMove)
     document.addEventListener('pointerup', onUp)
@@ -383,11 +386,58 @@
       widget.style.top = Math.min(maxY, Math.max(0, rect.top)) + 'px'
       widget.style.right = 'auto'
       widget.style.bottom = 'auto'
+      存位置()
     }
   }
 
+  // ⭐ 0.8.2：拖过的位置要记住。
+  //   · 只存**左上角坐标**（left/top）：挂饰能拖到屏幕中间，这时候 right/bottom 已经没意义了，
+  //     统一成一套坐标，逻辑只剩一条。
+  //   · 读回来先**夹进当前窗口**：窗口可能变小、屏幕可能换；而且收起态是 64px、
+  //     大图还能放到 1.6 倍（288px），同一个坐标在不同形态下合法范围不一样。
+  //     所以形态/尺寸一变就重新夹一次（下面 保持屏内() 已经在做）。
+  //   · 没拖过的人**完全不写 inline 的 left/top**，CSS 的默认角落继续生效。
+  var 存位置计时 = 0
+  function 存位置() {
+    if (!dragged) return
+    // 拖动时每帧都写 localStorage 太浪费，攒到停手再写
+    if (存位置计时) return
+    存位置计时 = setTimeout(function () {
+      存位置计时 = 0
+      try {
+        var r = widget.getBoundingClientRect()
+        localStorage.setItem('fm-widget-pos', JSON.stringify({
+          x: Math.round(r.left), y: Math.round(r.top),
+        }))
+      } catch (e) {}
+    }, 200)
+  }
+
+  function 读位置() {
+    var v = null
+    try { v = JSON.parse(localStorage.getItem('fm-widget-pos') || 'null') } catch (e) { v = null }
+    if (!v || typeof v !== 'object') return null
+    var x = Number(v.x), y = Number(v.y)
+    if (!isFinite(x) || !isFinite(y)) return null // 脏数据当没存过，别让挂饰消失
+    return { x: x, y: y }
+  }
+
+  function 恢复位置() {
+    var p = 读位置()
+    if (!p) return
+    dragged = true
+    var maxX = Math.max(0, window.innerWidth - widget.offsetWidth)
+    var maxY = Math.max(0, window.innerHeight - widget.offsetHeight)
+    widget.style.left = Math.min(maxX, Math.max(0, p.x)) + 'px'
+    widget.style.top = Math.min(maxY, Math.max(0, p.y)) + 'px'
+    widget.style.right = 'auto'
+    widget.style.bottom = 'auto'
+  }
+
   document.body.appendChild(widget)
+  恢复位置()      // ⭐ 0.8.2：上次拖到哪儿就放哪儿（没拖过的照旧走 CSS 的默认角落）
   applyCollapsed()
+  保持屏内()      // 形态定下来之后再夹一次（收起态 64px、大图能到 288px，合法范围不一样）
   load()
 
   // ⭐ 0.7.6（她报的「收起态那个数字不刷新，得点一下才变」）：
@@ -410,6 +460,7 @@
     widget.style.top = y + 'px'
     widget.style.right = 'auto'
     widget.style.bottom = 'auto'
+    存位置()
     if (open) positionPanel()
   })
 })()
