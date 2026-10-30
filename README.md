@@ -100,6 +100,14 @@ github:Yuuyuko-uu/dsh-feiyu-mood
 dsh plugin --profile desktop add github:Yuuyuko-uu/dsh-feiyu-mood
 ```
 
+> ⚠ 上面这行会让包管理器去 **clone 仓库**，机器上没装 `git` 会报 `ERR_PNPM_GIT_FETCH_FAILED`。
+> 没 git 就用下面这条 **tarball 直链**，一样能装，不用 git：
+
+```bash
+dsh plugin --profile desktop add https://codeload.github.com/Yuuyuko-uu/dsh-feiyu-mood/tar.gz/refs/heads/main
+```
+
+
 > 暂未发布到 npm；上架后可简写成 `dsh plugin add dsh-feiyu-mood`。
 > ⭐ 最省事的一条：把仓库链接贴给你自己的 DSH，说「**帮我装这个插件**」。
 
