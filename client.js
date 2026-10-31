@@ -186,7 +186,19 @@ window.__ModuleLoader__.load({
         }
         setUpBusy('')
       }
-      const 更新命令 = ['dsh plugin --profile web remove dsh-feiyu-mood', 'dsh plugin --profile web add dsh-feiyu-mood'].join(String.fromCharCode(10))
+
+      // ⭐ 2026-11-01：查到新版就**一键装**（宿主那边的 pluginManager.installBundle）
+      const 一键更新 = async () => {
+        setUpBusy('1')
+        try {
+          const r = await postJson(API + '/install', {})
+          if (r && r.ok) flash('开始更新了 —— 装完按提示重载一次')
+          else flash('更新失败：' + ((r && r.error) || '不知道原因'))
+        } catch (e) {
+          flash('更新失败：' + (e && e.message))
+        }
+        setUpBusy('')
+      }
 
       /* ⭐ 一份心情可以绑好几个会话（或一个工作区）：这里照这份清单画
          （没配置过就当成「第一份」；id 尽量沿用宿主给的 st.key，别凭空造一个） */
@@ -271,15 +283,14 @@ window.__ModuleLoader__.load({
           upBusy === '1' ? '查…' : '检查更新'))
       const 新版块 = (up && up.hasUpdate)
         ? h('div', { 'data-fm-sec': '' },
-          h('div', { 'data-fm-note': '' }, '更新方法：先卸旧版，再装新版 —— 直接装可能拿到缓存里的旧副本。'),
-          h('div', { 'data-fm-quote': '' }, 更新命令),
+          h('div', { 'data-fm-note': '' }, up.canInstall
+            ? '仓库里已经有 v' + up.latest + ' 了，点下面这个按钮直接装。'
+            : '仓库里已经有 v' + up.latest + ' 了。这是本地开发副本（link: 进来的），请手动更新。'),
           h('div', { 'data-fm-row': '' },
-            h('button', {
-              'data-fm-btn': '',
-              onClick: () => navigator.clipboard.writeText(更新命令)
-                .then(() => flash('命令已复制'))
-                .catch(() => flash('复制不了，手动选中吧')),
-            }, '复制命令'),
+            up.canInstall
+              ? h('button', { 'data-fm-btn': '', disabled: upBusy === '1', onClick: 一键更新 },
+                upBusy === '1' ? '装…' : '一键更新到 v' + up.latest)
+              : null,
             up.repoUrl
               ? h('a', {
                 'data-fm-btn': '', href: up.repoUrl, target: '_blank', rel: 'noreferrer',
