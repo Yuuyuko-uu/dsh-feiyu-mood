@@ -16,8 +16,8 @@ const APOSTROPHE_KEY = '--D-shing_of_kai-SourceCode-ShaoZhu~0027sDSHPlugins--'
 test('project key escapes characters outside [A-Za-z0-9._-] exactly like DSH', () => {
   assert.equal(api.工作区目录名(APOSTROPHE), APOSTROPHE_KEY)
   assert.equal(
-    api.工作区目录名('C:\\Users\\Administrator\\Desktop\\鱼鱼窝\\dsh'),
-    '--C-Users-Administrator-Desktop-~9C7C~9C7C~7A9D-dsh--',
+    api.工作区目录名('C:\\Users\\someone\\Desktop\\my-workspace\\dsh'),
+    '--C-Users-someone-Desktop-my-workspace-dsh--',
   )
 })
 
@@ -55,7 +55,7 @@ test('workspace list matches reverse lookup by path and never adds a 0-session g
       workspaces: {
         w1: { path: APOSTROPHE, title: 'plugin-source' },
         // Registered in workspace.json but has no session directory: must not appear as a ghost.
-        w2: { path: 'C:\\Users\\Administrator\\Desktop\\鱼鱼窝\\dsh', title: 'fish-nest' },
+        w2: { path: 'C:\\Users\\someone\\Desktop\\my-workspace\\dsh', title: 'fish-nest' },
       },
     },
   }), 'utf8')
@@ -70,7 +70,7 @@ test('workspace list matches reverse lookup by path and never adds a 0-session g
 
   const ghostNames = list.filter((w) => w.sessions === 0 && w.path)
   assert.deepEqual(ghostNames, [])
-  assert.ok(!list.some((w) => w.name === '--C-Users-Administrator-Desktop-~9C7C~9C7C~7A9D-dsh--'))
+  assert.ok(!list.some((w) => w.name === '--C-Users-someone-Desktop-my-workspace-dsh--'))
 })
 
 test('a key stored with the old encoder is repaired to the real directory name', () => {

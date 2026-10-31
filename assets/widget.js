@@ -101,6 +101,28 @@
   widget.appendChild(bodyImg)
   widget.title = '心情（点开看，按住拖动换位置）'
 
+  // ⭐ 2026-10-31：**外面这个小挂件跟着心情换形象**（五档，和面板里那张脸同一套阈值）
+  //   1 大笑 / 2 微笑 / 3 普通（原图 feiyu.png）/ 4 嘟嘴 / 5 哭
+  //   ⚠ 3 档仍然用 feiyu.png 那个路径，别改成 feiyu-ok.png —— 老图不动，免得缓存和备份对不上
+  function bodyFor(v) {
+    if (v >= 80) return B + '/feiyu-great.png'
+    if (v >= 62) return B + '/feiyu-good.png'
+    if (v >= 42) return B + '/feiyu.png'
+    if (v >= 25) return B + '/feiyu-worry.png'
+    return B + '/feiyu-sad.png'
+  }
+  var 当前形象 = B + '/feiyu.png'
+  function 换形象(v) {
+    if (v == null || v === '') return
+    var src = bodyFor(Number(v))
+    if (src === 当前形象) return
+    当前形象 = src
+    bodyImg.src = src
+  }
+  // 五张先各自拉一遍，换档的时候不会空一下（本地端口，几十毫秒）
+  ;[B + '/feiyu-great.png', B + '/feiyu-good.png', B + '/feiyu.png', B + '/feiyu-worry.png', B + '/feiyu-sad.png']
+    .forEach(function (u) { var i = new Image(); i.src = u })
+
   // ⭐ 2026-10-23（反馈第二版）：分清两件事，别混在一起 ——
   //   · **外面那个东西**（大肥鱼形象 / 小圆）：点一下只负责**开关面板**，不改形态
   //   · **面板右上角那个钮**：只负责**切换外面显示的形态**（大 ↔ 小）
@@ -274,6 +296,8 @@
   function renderAll(d) {
     // 收起态那个小圆里显示的心情数字
     try { colNum.textContent = d && d.mood != null ? String(d.mood) : '--' } catch (e) {}
+    // ⭐ 2026-10-31：外面的形象跟着档位换（1 大笑 … 5 哭），面板开着也照换
+    try { 换形象(d && d.mood) } catch (e) {}
     if (page === 'log') renderLog(d)
     else renderMain(d)
   }
@@ -440,7 +464,7 @@
   保持屏内()      // 形态定下来之后再夹一次（收起态 64px、大图能到 288px，合法范围不一样）
   load()
 
-  // ⭐ 0.7.6（她报的「收起态那个数字不刷新，得点一下才变」）：
+  // ⭐ 0.7.6（收起态那个数字以前不刷新，得点一下才变）：
   //   以前只有「点开面板」才 load() 一次，收起来的时候就再也不拉了 —— 数字一直是旧的。
   //   现在收起态也每 20 秒拉一次（就一个 GET，不花 token）；页面重新可见时也补一次。
   setInterval(load, 20000)
