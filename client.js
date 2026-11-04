@@ -531,6 +531,17 @@ window.__ModuleLoader__.load({
               placeholder: '小鱼,宝贝,亲爱的',
               onChange: (e) => setCfg((c) => ({ ...c, selfAliases: e.target.value })),
               onBlur: () => patch({ selfAliases: cfg.selfAliases }, '昵称'),
+            })),
+          // ⭐ 它自己怎么自称：写进 reason 的那个「我」
+          h('div', { 'data-fm-row': '' },
+            h('div', { 'data-fm-grow': '' },
+              h('div', { 'data-fm-label': '' }, 'TA 自称什么'),
+              h('div', { 'data-fm-note': '' }, '心情描述里它管自己叫什么。默认「我」；跑角色设定重的模型、它平时说「本小姐」「在下」，就填进去')),
+            h('input', {
+              'data-fm-input': '', value: cfg.selfPronoun || '我',
+              placeholder: '我',
+              onChange: (e) => setCfg((c) => ({ ...c, selfPronoun: e.target.value })),
+              onBlur: () => patch({ selfPronoun: cfg.selfPronoun }, '自称'),
             }))))
         项.push(h('div', { key: 'model', 'data-fm-sec': '' },
           h('div', { 'data-fm-h': '' }, '判断用哪个模型'),
