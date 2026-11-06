@@ -532,6 +532,17 @@ window.__ModuleLoader__.load({
               onChange: (e) => setCfg((c) => ({ ...c, selfAliases: e.target.value })),
               onBlur: () => patch({ selfAliases: cfg.selfAliases }, '昵称'),
             })),
+          // ⭐ 0.9.1：同一个主人在不同群里的群名片往往不一样 —— 这里把那些名字都列上
+          h('div', { 'data-fm-row': '' },
+            h('div', { 'data-fm-grow': '' },
+              h('div', { 'data-fm-label': '' }, 'TA 在别处还叫什么（群名片）'),
+              h('div', { 'data-fm-note': '' }, '逗号分隔。群聊里只认「TA 说的话」，而同一个人的群名片在每个群都可能不同；把这些名字列上，那个群也照常判心情。带上 QQ 号（比如：小鱼（123456））就按号码认人，改名也不怕')),
+            h('input', {
+              'data-fm-input': '', value: cfg.ownerAliases || '',
+              placeholder: '小鱼,宝宝（123456）',
+              onChange: (e) => setCfg((c) => ({ ...c, ownerAliases: e.target.value })),
+              onBlur: () => patch({ ownerAliases: cfg.ownerAliases }, '群名片'),
+            })),
           // ⭐ 它自己怎么自称：写进 reason 的那个「我」
           h('div', { 'data-fm-row': '' },
             h('div', { 'data-fm-grow': '' },
